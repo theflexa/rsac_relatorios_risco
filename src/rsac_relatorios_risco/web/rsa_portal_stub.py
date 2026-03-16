@@ -1,0 +1,2 @@
+class RsaPortalNotReadyError(RuntimeError):
+    pass
