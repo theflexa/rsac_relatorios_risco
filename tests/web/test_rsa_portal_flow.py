@@ -90,3 +90,11 @@ def test_flow_executes_expected_sequence_when_selectors_are_ready(tmp_path: Path
     assert any(call[0] == "type_into" and call[2] == "3333" for call in actions.calls)
     assert any(call[0] == "click" and "data-coop='4444'" in call[1] for call in actions.calls)
     assert actions.calls[-1][0] == "click"
+
+
+def test_flow_uses_web_rpa_actions_module_by_default():
+    from rsac_relatorios_risco.web import rpa_actions
+
+    flow = RsaPortalFlow(driver=object())
+
+    assert flow.actions is rpa_actions

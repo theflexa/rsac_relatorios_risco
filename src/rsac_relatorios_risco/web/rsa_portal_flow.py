@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from rsac_relatorios_risco.web import rpa_actions
 from rsac_relatorios_risco.web import selectors_config
 from rsac_relatorios_risco.web.rsa_portal_stub import RsaPortalNotReadyError
 
@@ -8,21 +9,10 @@ class RsaPortalPendingSelectorError(RsaPortalNotReadyError):
     pass
 
 
-class _DefaultActions:
-    def click(self, *args, **kwargs):
-        raise RsaPortalNotReadyError("Actions web ainda não foram conectadas ao driver real")
-
-    def type_into(self, *args, **kwargs):
-        raise RsaPortalNotReadyError("Actions web ainda não foram conectadas ao driver real")
-
-    def wait_element(self, *args, **kwargs):
-        raise RsaPortalNotReadyError("Actions web ainda não foram conectadas ao driver real")
-
-
 class RsaPortalFlow:
-    def __init__(self, driver, actions=None, selectors_module=selectors_config) -> None:
+    def __init__(self, driver, actions=rpa_actions, selectors_module=selectors_config) -> None:
         self.driver = driver
-        self.actions = actions or _DefaultActions()
+        self.actions = actions
         self.selectors = selectors_module
 
     def abrir_modulo_rsa(self) -> None:
