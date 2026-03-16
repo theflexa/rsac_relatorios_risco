@@ -1,0 +1,59 @@
+Nome da automação: RSAC - Relatórios de Risco
+Desenvolvedor: Guilherme Flexa
+
+Intruções sobre o orchestrador "Jarbis": "C:\Users\Guilherme Flexa\Desktop\Projetos Sicoob\Projetos Python\AI_INSTRUCTIONS_RPA_JARBIS"
+
+Tenho um projeto (1) REFERÊNCIA principalmente em navegações web e ORGANIZAÇÃO de código: "C:\Users\Guilherme Flexa\Desktop\Projetos Sicoob\Projetos Python\dash_portal_chamados", principalmente no conceito de utilizar a atividade "\utils\rpa_actions.py" como referência de seletores para manuntenções e etc.
+
+Tenho um segundo projeto (2) REFERÊNCIA na utilização da biblioteca "lib_sisbr_desktop", diretorio: C:\Users\Guilherme Flexa\Desktop\Projetos Sicoob\Projetos Python\analisecredito_f3.
+Ele também faz utilização da lógica "Dispatcher" e "Performer" que será usada no projeto.
+
+Gostaria que analisasse cada código a fim de preservar as boas práticas do projeto 1 e preservar utilização da biblioteca no projeto 2 para produzir o projeto novo.
+O nome do projeto é: RSAC Exportação de Relatórios de Risco
+
+Esse projeto precisa ->
+
+Detalhes Gerais: 
+-> Cada item/instância = Registro no banco. 
+-> CREDENCIAIS ficam no .env
+-> Irei enviar os seletores web numa segunda etapa do projeto para ser gerado um XPATH deles
+-> "Select item" é o tipo combobox
+-> Item 18 em diante pode ser esboço
+-> Modelo arquivo principal ->  ("C:\Users\Guilherme Flexa\Desktop\Projetos Sicoob\Projetos Python\rsa_relatorios_risco\Models\Modelo_PlanilhaPrincipal.xlsx")
+-> Validar formato de todos os arquivos antes de dar solução
+
+(Etapas de Dispatcher)
+1. Ler Excel de configuração, exemplo: "C:\Users\Guilherme Flexa\Desktop\Projetos Sicoob\Projetos Python\Config.xlsx"
+2. Gerar "items/instâncias" no Jarbis a partir do arquivo de config na aba "Items"
+3. Identificar se o item já foi criado antes de criar instância e inserir no banco
+4. Processar o item (Jarbis faz isso)
+(Etapas de Performer)
+1. Fazer login no Sisbr 2.0
+2. Acessar módulo "Relatórios de Riscos Social Ambiental e Climático" Obs: Após isso vai ser aberto automaticamente o navegador padrão chrome
+3. Acessar a aba já aberta que possui url "https://portal.sisbr.coop.br/rsa/"
+4. Clicar no botão "Relatórios" 
+5. Clicar no botão  "Relatórios de Riscos Social Ambiental e Climático" (Url esperada: https://portal.sisbr.coop.br/rsa/risco)
+6. Preencher formulário dos campos: "Tipo de Relatório" (Select Item: Relatório por Cooperativa),  "Singular" (Select Item: {Cooperativa Do Item, ex: 3433}), "Mês/Ano" (mm/aaaa)
+7. Clicar em "Exportar" (Vai abrir um pop up)
+8. Selecionar o campo "formato" (Select Item: xlsx)
+9. Clicar no botão "Gerar Relatório" -> Vai abrir automaticamente um sidebar com "Relatórios Disponíveis"
+10. Validar se na tabela o último registro da coluna  "Relatório" = "RELATORIO_RISCO_COOPERATIVA" e "Situação" = Processado com alerta
+11. Clicar em "Imprimir arquivo na linha da Tabela.
+12. Vai escrever o local de donwload (Janela do windows)
+13. Clicar em salvar (Janela do windows)
+14. Depois vai ler o excel e obter os dados do excel baixado (MOdelo: "C:\Users\Guilherme Flexa\Desktop\Projetos Sicoob\Projetos Python\rsa_relatorios_risco\Models\rpas1004_00_RELATORIO_RISCO_COOPERATIVA_20260313_182416_0644.XLSX.XLSX")
+15. Preencher arquivo principal na sheet que é correspondente ao número da cooperativa (ex: 3333)
+16. Após preenchido salvar arquivo numa pasta temporária dentro do projeto. (Obs: o padrão do nome do arquivo deve ser configurável no config, tendo pelo menos as variáveis: Cooperativa, mês e ano.
+17. Anexar arquivo na pasta do sharepoint https://sicoobgo.sharepoint.com/sites/1004-SICOOBNOVACENTRAL/DESENVOLVIMENTO/DESENVOLVEDORES/RPA-ProcessoRSARelatorioRiscos/Saida (deve puxar do config) porém, deve criar se não existir os diretórios posteriores "{yyyy} - Ações RSAC/{MM-yyyy}/{Cooperativa}", resultando em algo como :https://sicoobgo.sharepoint.com/sites/1004-SICOOBNOVACENTRAL/DESENVOLVIMENTO/DESENVOLVEDORES/RPA-ProcessoRSARelatorioRiscos/Saida/2026 - Ações RSAC/03-2026/3263 (Pressupondo preenchimento das variaveis)
+18. Envio de e-mail de execução concluída ao fim do Job. Ex de processo que realiza envio de e-mail: "C:\Users\Guilherme Flexa\Desktop\Projetos Sicoob\Projetos Python\python-graph-sendmail"
+
+Resultado esperado:
+Caso haja erro, estar bem descrito.
+Utilização da biblioteca \utils\rpa_actions.py
+Um esqueleto robusto de como ficaria a automação
+Utilização de melhores práticas de desenvolvimento
+Sem regras de validação desnecessárias que só tornam o código mais complexo
+Código legível por um júnior
+Destacado onde terei que preencher manualmente.
+Pipiline estruturado das tasks a fazer.
+Logs sobre cada ação relevante, ex: "Clicou na aba Relatórios", "Salvou relatório no local: {Path}"...
