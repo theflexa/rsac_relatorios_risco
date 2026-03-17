@@ -15,3 +15,9 @@ def test_registered_topics_contains_dispatcher_and_performer():
 
 def test_agent_jarbis_imports():
     assert importlib.import_module("agent_jarbis") is not None
+
+
+def test_agent_jarbis_exposes_performer_entrypoint():
+    module = importlib.import_module("agent_jarbis")
+
+    assert hasattr(module, "run_performer")
