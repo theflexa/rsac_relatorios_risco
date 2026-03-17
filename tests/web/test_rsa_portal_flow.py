@@ -92,8 +92,8 @@ def test_flow_executes_expected_sequence_when_selectors_are_ready(tmp_path: Path
     assert actions.calls[-1][0] == "click"
 
 
-def test_flow_uses_web_rpa_actions_module_by_default():
-    from rsac_relatorios_risco.web import rpa_actions
+def test_flow_uses_utils_rpa_actions_module_by_default():
+    from utils import rpa_actions
 
     flow = RsaPortalFlow(driver=object())
 

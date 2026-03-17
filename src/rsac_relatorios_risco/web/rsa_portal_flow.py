@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from rsac_relatorios_risco.web import rpa_actions
+from utils import rpa_actions
 from rsac_relatorios_risco.web import selectors_config
 from rsac_relatorios_risco.web.rsa_portal_stub import RsaPortalNotReadyError
 
