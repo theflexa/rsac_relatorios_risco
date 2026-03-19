@@ -116,6 +116,6 @@ def default_lib_sisbr_path() -> Path:
     return Path(
         os.getenv(
             "LIB_SISBR_DESKTOP_PATH",
-            r"C:\Users\Guilherme Flexa\Desktop\Projetos Sicoob\Projetos Python\analisecredito_f3\lib_sisbr_desktop",
+            str(Path(__file__).resolve().parent.parent.parent.parent / "lib_sisbr_desktop"),
         )
     )

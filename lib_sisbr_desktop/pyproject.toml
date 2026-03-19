@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "lib_sisbr_desktop"
+version = "0.1.0"
+description = ""
+authors = ["Lisandro <lisandro_souza1@hotmail.com>"]
+readme = "README.md"
+packages = [{include = "lib_sisbr_desktop", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pyautogui = "^0.9.54"
+opencv-python = "^4.11.0.86"
+pillow = "^11.2.1"
+pytesseract = "^0.3.13"
+pygetwindow = "^0.0.9"
+pywinauto = "^0.6.9"
+loguru = "^0.7.3"
+python-dotenv = "^1.1.0"
+psutil = "^7.0.0"
+python-dateutil = "^2.9.0.post0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
