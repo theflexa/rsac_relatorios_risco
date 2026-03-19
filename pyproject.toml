@@ -9,6 +9,12 @@ dependencies = [
     "requests",
     "msal",
     "jarbis_external_client",
+    "pywinauto",
+    "selenium",
+    "pyautogui",
+    "pyperclip",
+    "opencv-python",
+    "psutil",
 ]
 
 [tool.pytest.ini_options]

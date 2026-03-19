@@ -9,14 +9,16 @@ class ItemRunResult:
 
 
 class PerformerItemRunner:
-    def __init__(self, rsa_flow, report_service, batch_runner) -> None:
+    def __init__(self, sisbr_flow, rsa_flow, report_service, batch_runner) -> None:
+        self.sisbr_flow = sisbr_flow
         self.rsa_flow = rsa_flow
         self.report_service = report_service
         self.batch_runner = batch_runner
 
     def run(self, *, item, workbook_path: Path, download_dir: Path) -> ItemRunResult:
         data = item.data
-        self.rsa_flow.abrir_modulo_rsa()
+        self.sisbr_flow.acessar_modulo_rsa()
+        self.rsa_flow.validar_home()
         self.rsa_flow.preencher_filtros(
             competencia=data["competencia"],
             tipo_relatorio=data["tipo_relatorio"],

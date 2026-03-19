@@ -37,12 +37,21 @@ class FakeResolver:
         return Path("temp/RSAC_032026.xlsx")
 
 
+class FakeSisbrFlow:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def acessar_modulo_rsa(self):
+        self.calls.append("acessar_modulo_rsa")
+        return "janela-rsa"
+
+
 class FakeRsaFlow:
     def __init__(self) -> None:
         self.calls = []
 
-    def abrir_modulo_rsa(self):
-        self.calls.append("abrir_modulo_rsa")
+    def validar_home(self):
+        self.calls.append("validar_home")
 
     def preencher_filtros(self, *, competencia, tipo_relatorio):
         self.calls.append(("preencher_filtros", competencia, tipo_relatorio))
@@ -109,6 +118,7 @@ def test_step_by_step_performer_runs_linear_flow_with_clear_logs(tmp_path: Path)
         queue_repository=FakeQueueRepository([item]),
         item_updater=FakeItemUpdater(),
         consolidado_resolver=FakeResolver(),
+        sisbr_flow=FakeSisbrFlow(),
         rsa_flow=FakeRsaFlow(),
         report_service=FakeReportService(),
         batch_runner=FakeBatchRunner(),
@@ -130,7 +140,8 @@ def test_step_by_step_performer_runs_linear_flow_with_clear_logs(tmp_path: Path)
         "Localizando ou criando consolidado mensal",
         "Coletando item 1 - 3333_RSAC_RISCO_032026",
         "Marcando item 1 como processando",
-        "Abrindo módulo RSA",
+        "Acessando módulo RSA via Sisbr Desktop",
+        "Validando home RSA no navegador",
         "Preenchendo filtros da competência 03/2026",
         "Selecionando cooperativa 3333",
         "Exportando relatório da cooperativa 3333",

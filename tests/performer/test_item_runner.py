@@ -4,12 +4,21 @@ from rsac_relatorios_risco.performer.item_runner import PerformerItemRunner
 from rsac_relatorios_risco.performer.models import PerformerItem
 
 
+class FakeSisbrFlow:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def acessar_modulo_rsa(self):
+        self.calls.append("acessar_modulo_rsa")
+        return "janela-rsa"
+
+
 class FakeFlow:
     def __init__(self) -> None:
         self.calls = []
 
-    def abrir_modulo_rsa(self):
-        self.calls.append("abrir")
+    def validar_home(self):
+        self.calls.append("validar_home")
 
     def preencher_filtros(self, *, competencia, tipo_relatorio):
         self.calls.append(("filtros", competencia, tipo_relatorio))
@@ -56,8 +65,11 @@ def test_item_runner_executes_flow_for_single_item(tmp_path: Path):
             "sharepoint": "destino",
         },
     )
+    sisbr_flow = FakeSisbrFlow()
+    rsa_flow = FakeFlow()
     runner = PerformerItemRunner(
-        rsa_flow=FakeFlow(),
+        sisbr_flow=sisbr_flow,
+        rsa_flow=rsa_flow,
         report_service=FakeReportService(),
         batch_runner=FakeBatchRunner(),
     )
@@ -70,3 +82,5 @@ def test_item_runner_executes_flow_for_single_item(tmp_path: Path):
 
     assert result.final_status == "sucesso"
     assert result.report_path.name == "relatorio.xlsx"
+    assert sisbr_flow.calls == ["acessar_modulo_rsa"]
+    assert rsa_flow.calls[0] == "validar_home"

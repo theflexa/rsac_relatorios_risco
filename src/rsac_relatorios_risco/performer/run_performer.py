@@ -13,6 +13,7 @@ class StepByStepPerformer:
         queue_repository,
         item_updater,
         consolidado_resolver,
+        sisbr_flow,
         rsa_flow,
         report_service,
         batch_runner,
@@ -26,6 +27,7 @@ class StepByStepPerformer:
         self.queue_repository = queue_repository
         self.item_updater = item_updater
         self.consolidado_resolver = consolidado_resolver
+        self.sisbr_flow = sisbr_flow
         self.rsa_flow = rsa_flow
         self.report_service = report_service
         self.batch_runner = batch_runner
@@ -60,8 +62,11 @@ class StepByStepPerformer:
             self.logger.info(f"Marcando item {item.item_id} como processando")
             item = self.item_updater.mark_processing(item)
 
-            self.logger.info("Abrindo módulo RSA")
-            self.rsa_flow.abrir_modulo_rsa()
+            self.logger.info("Acessando módulo RSA via Sisbr Desktop")
+            self.sisbr_flow.acessar_modulo_rsa()
+
+            self.logger.info("Validando home RSA no navegador")
+            self.rsa_flow.validar_home()
 
             self.logger.info(
                 f"Preenchendo filtros da competência {item.data['competencia']}",
