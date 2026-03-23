@@ -60,7 +60,7 @@ CAMPOS_LOGIN_RECT = {
 # --- TELA PRINCIPAL ---
 CAMPOS_ACESSO_MODULO_RECT = {
 
-    "campo_busca_modulo": {"bounds": (28, 981, 258, 1003), "control_type": "Edit"},
+    "campo_busca_modulo": {"bounds": (29, 990, 258, 1009), "control_type": "Edit"},
     "nova_cooperativa_valor": {"title": "NOVA COOPERATIVA:", "name": "NOVA COOPERATIVA:", "control_type": "Edit"},
     "nova_cooperativa_confirmar": {"title": "CONFIRMAR:", "name": "CONFIRMAR:", "control_type": "Button"},
     "nova_cooperativa_sim": {"title": "SIM:", "name": "SIM:", "control_type": "Button"},

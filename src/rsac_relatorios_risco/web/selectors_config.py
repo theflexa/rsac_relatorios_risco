@@ -32,16 +32,47 @@ class Screen_RsaHome:
     BTN_MENU_RELATORIOS_TIPO = By.XPATH
 
 
+class Screen_RsaBrowser:
+    TITULO_CONTEM = (
+        "RSAC",
+        "Riscos Social",
+        "Climatico",
+        "Climático",
+    )
+    URL_CONTEM = (
+        "rsac",
+        "risco",
+        "social",
+        "ambiental",
+        "climatico",
+        "clim%C3%A1tico",
+    )
+
+
+class Screen_RsaLogin:
+    VALIDACAO_LOGIN = "username"
+    VALIDACAO_LOGIN_TIPO = By.ID
+
+    INPUT_LOGIN = "username"
+    INPUT_LOGIN_TIPO = By.ID
+
+    INPUT_SENHA = "password"
+    INPUT_SENHA_TIPO = By.ID
+
+    BTN_LOGAR = "kc-login"
+    BTN_LOGAR_TIPO = By.ID
+
+
 class Screen_RsaMenuRelatorios:
     ITEM_RELATORIOS_RSAC = (
-        "//a[contains(normalize-space(),'Riscos Social') and contains(normalize-space(),'Clim')]"
+        "//div[contains(@class, 'ss-toolbar-menu')]//a[contains(normalize-space(),'Riscos Social') and contains(normalize-space(),'Clim')]"
     )
     ITEM_RELATORIOS_RSAC_TIPO = By.XPATH
 
 
 class Screen_RsaFormulario:
     VALIDACAO_TELA_FORMULARIO = (
-        "//h6[contains(normalize-space(),'Riscos Social') and contains(normalize-space(),'Clim')]"
+        "//div[contains(@class, 'cdk-overlay-container')]//h6[contains(normalize-space(),'Riscos Social') and contains(normalize-space(),'Clim')]"
     )
     VALIDACAO_TELA_FORMULARIO_TIPO = By.XPATH
 

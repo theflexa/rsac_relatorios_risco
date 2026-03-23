@@ -7,6 +7,23 @@ from pywinauto.timings import TimeoutError
 from ..config import SISBR_EXE
 from loguru import logger
 
+
+def _is_usable_main_window(win) -> bool:
+    try:
+        if not win.exists():
+            return False
+        rect = win.rectangle()
+        width = rect.right - rect.left
+        height = rect.bottom - rect.top
+        if width <= 0 or height <= 0:
+            return False
+        if rect.left <= -30000 or rect.top <= -30000:
+            return False
+        return True
+    except Exception:
+        return False
+
+
 def abrir_sisbr(caminho_exe: str = SISBR_EXE, timeout: int = 30):
     """
     Inicia o Sisbr 2.0 se não estiver aberto, ou conecta-se a uma instância existente.
@@ -26,10 +43,15 @@ def abrir_sisbr(caminho_exe: str = SISBR_EXE, timeout: int = 30):
         # Usamos um timeout mais curto para a conexão, pois deve ser rápido se a janela existir.
         app = Application(backend="uia").connect(title_re="Sisbr 2.0", timeout=10)
         win_principal = app.window(title_re="Sisbr 2.0")
+        win_principal.wait("exists visible ready", timeout=5)
+        if not _is_usable_main_window(win_principal):
+            raise RuntimeError("Janela conectada do Sisbr está em estado fantasma/off-screen.")
         logger.success("Conectado a uma instância existente do Sisbr 2.0.")
 
-    except (ElementNotFoundError, TimeoutError):
-        logger.warning("Nenhuma instância do Sisbr 2.0 encontrada ou a conexão falhou. Iniciando uma nova...")
+    except Exception as connection_error:
+        logger.warning(
+            f"Nenhuma instância utilizável do Sisbr 2.0 foi encontrada ({connection_error}). Iniciando uma nova..."
+        )
         try:
             # Se a conexão falhar, tenta INICIAR uma nova aplicação
             app = Application(backend="uia").start(cmd_line=f'"{caminho_exe}"')
@@ -37,6 +59,8 @@ def abrir_sisbr(caminho_exe: str = SISBR_EXE, timeout: int = 30):
             # Aguarda a janela principal aparecer com um timeout mais longo
             win_principal = app.window(title_re="Sisbr 2.0")
             win_principal.wait('ready', timeout=timeout)
+            if not _is_usable_main_window(win_principal):
+                raise RuntimeError("A nova instância do Sisbr abriu sem uma janela principal utilizável.")
             logger.success("Nova instância do Sisbr 2.0 iniciada com sucesso.")
             time.sleep(10)
             
@@ -45,7 +69,7 @@ def abrir_sisbr(caminho_exe: str = SISBR_EXE, timeout: int = 30):
             raise RuntimeError(f"Não foi possível iniciar o Sisbr 2.0 a partir de '{caminho_exe}'.") from e
 
     # Garante que a janela esteja pronta para interação
-    if win_principal and win_principal.exists():
+    if win_principal and _is_usable_main_window(win_principal):
         if win_principal.is_minimized():
             win_principal.restore()
         

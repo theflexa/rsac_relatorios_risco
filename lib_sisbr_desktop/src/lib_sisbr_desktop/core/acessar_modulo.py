@@ -9,9 +9,23 @@ from loguru import logger
 from ..gui.helpers import find_edit_by_rect
 from ..gui.typer import type_with_retry
 from ..gui.mapeamento import CAMPOS_ACESSO_MODULO_RECT 
-from ..utils.window import get_window_by_title, get_browser_with_tab
+from ..utils.window import get_window_by_title, get_browser_with_any_tab, get_browser_with_tab
 from ..gui.helpers import get_position_img
 from ..utils.utils import limpar_restauracao_edge, fechar_todas_instancias_sisbr
+
+
+def _browser_tab_candidates(nome_modulo: str) -> list[str]:
+    candidates = [nome_modulo]
+    normalized = nome_modulo.upper()
+    if "RISCOS SOCIAL, AMBIENTAL E CLIM" in normalized:
+        candidates.extend(
+            [
+                "RSAC",
+                "Riscos Social, Ambiental e Climatico",
+                "Riscos Social, Ambiental e Climático",
+            ]
+        )
+    return candidates
 
 def acessar_modulo(win_principal, nome_modulo: str, max_retentativas: int = 3):
     """
@@ -86,11 +100,17 @@ def acessar_modulo(win_principal, nome_modulo: str, max_retentativas: int = 3):
                 return win_existente
             else:
                 # Para outros módulos, usar a verificação padrão
-                win_existente = get_window_by_title(
-                    titulo=nome_modulo,
-                    app=win_principal.app,
-                    timeout=3  # curto, só pra checar existência
-                )
+                try:
+                    win_existente = get_window_by_title(
+                        titulo=nome_modulo,
+                        app=win_principal.app,
+                        timeout=3  # curto, só pra checar existência
+                    )
+                except Exception:
+                    win_existente = get_browser_with_any_tab(
+                        _browser_tab_candidates(nome_modulo),
+                        timeout=3,
+                    )
                 try:
                     win_thread = threading.Thread(target=lambda: win_existente.set_focus())
                     win_thread.daemon = True
@@ -176,11 +196,17 @@ def acessar_modulo(win_principal, nome_modulo: str, max_retentativas: int = 3):
                         pass
                 else:
                     # Para outros módulos, usar a verificação padrão
-                    win_modulo = get_window_by_title(
-                        titulo=nome_modulo.upper(), 
-                        app=win_principal.app, 
-                        timeout=15
-                    )
+                    try:
+                        win_modulo = get_window_by_title(
+                            titulo=nome_modulo.upper(), 
+                            app=win_principal.app, 
+                            timeout=15
+                        )
+                    except Exception:
+                        win_modulo = get_browser_with_any_tab(
+                            _browser_tab_candidates(nome_modulo),
+                            timeout=15,
+                        )
                 
                 try:
                     win_thread = threading.Thread(target=lambda: win_modulo.set_focus())

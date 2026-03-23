@@ -1,4 +1,6 @@
 from pathlib import Path
+import os
+import unicodedata
 
 from utils import rpa_actions
 from rsac_relatorios_risco.web import selectors_config
@@ -7,6 +9,10 @@ from rsac_relatorios_risco.windows.save_as_flow import WindowsSaveAsFlow
 
 
 class RsaPortalPendingSelectorError(RsaPortalNotReadyError):
+    pass
+
+
+class RsaPortalAuthenticationError(RsaPortalNotReadyError):
     pass
 
 
@@ -26,6 +32,8 @@ class RsaPortalFlow:
         self._current_cooperativa: str | None = None
 
     def validar_home(self) -> None:
+        self._ensure_browser_context()
+        self._login_if_needed()
         home = self.selectors.Screen_RsaHome
         self._ensure_ready("VALIDACAO_HOME", home.VALIDACAO_HOME)
         self.actions.wait_element(
@@ -270,3 +278,83 @@ class RsaPortalFlow:
         cooperativa = self._current_cooperativa or "coop"
         competencia = (self._current_competencia or "000000").replace("/", "")
         return Path(download_dir) / f"relatorio_{cooperativa}_{competencia}.xlsx"
+
+    def _ensure_browser_context(self) -> None:
+        handles = list(getattr(self.driver, "window_handles", []) or [])
+        if not handles:
+            return
+
+        current_handle = getattr(self.driver, "current_window_handle", None)
+        ordered_handles = self._ordered_handles(handles, current_handle)
+
+        for handle in ordered_handles:
+            self.driver.switch_to.window(handle)
+            if self._is_rsac_context():
+                return
+
+        if current_handle:
+            self.driver.switch_to.window(current_handle)
+
+    @staticmethod
+    def _ordered_handles(handles: list[str], current_handle: str | None) -> list[str]:
+        if current_handle and current_handle in handles:
+            return [current_handle, *[handle for handle in handles if handle != current_handle]]
+        return handles
+
+    def _is_rsac_context(self) -> bool:
+        browser = getattr(self.selectors, "Screen_RsaBrowser", None)
+        if browser is None:
+            return False
+
+        current_title = self._normalize_text(getattr(self.driver, "title", ""))
+        current_url = self._normalize_text(getattr(self.driver, "current_url", ""))
+
+        title_keywords = tuple(self._normalize_text(value) for value in getattr(browser, "TITULO_CONTEM", ()))
+        url_keywords = tuple(self._normalize_text(value) for value in getattr(browser, "URL_CONTEM", ()))
+
+        title_match = any(keyword and keyword in current_title for keyword in title_keywords)
+        url_match = any(keyword and keyword in current_url for keyword in url_keywords)
+        return title_match or url_match
+
+    def _login_if_needed(self) -> None:
+        login_screen = getattr(self.selectors, "Screen_RsaLogin", None)
+        if login_screen is None or not self._is_login_context():
+            return
+
+        login_user = os.getenv("LOGIN_USER") or os.getenv("USUARIO")
+        login_password = os.getenv("LOGIN_PASSWORD") or os.getenv("SENHA")
+        if not login_user or not login_password:
+            raise RsaPortalAuthenticationError(
+                "Tela de login RSA detectada, mas LOGIN_USER/LOGIN_PASSWORD nao estao configurados no .env.",
+            )
+
+        self.actions.type_into(
+            self.driver,
+            login_screen.INPUT_LOGIN,
+            login_user,
+            login_screen.INPUT_LOGIN_TIPO,
+            verify_text=True,
+        )
+        self.actions.type_into(
+            self.driver,
+            login_screen.INPUT_SENHA,
+            login_password,
+            login_screen.INPUT_SENHA_TIPO,
+            verify_text=False,
+        )
+        self.actions.click(
+            self.driver,
+            login_screen.BTN_LOGAR,
+            login_screen.BTN_LOGAR_TIPO,
+        )
+
+    def _is_login_context(self) -> bool:
+        title = self._normalize_text(getattr(self.driver, "title", ""))
+        url = self._normalize_text(getattr(self.driver, "current_url", ""))
+        return "login sisbr" in title or "/auth/realms/sisbr/" in url
+
+    @staticmethod
+    def _normalize_text(value: str) -> str:
+        normalized = unicodedata.normalize("NFKD", value or "")
+        ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
+        return ascii_only.casefold()

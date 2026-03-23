@@ -7,5 +7,9 @@ env_path = str(Path(__file__).resolve().parent.parent.parent.parent / ".env")
 load_dotenv(dotenv_path=env_path)
 print("caminho do .env", env_path)
 SISBR_EXE = os.getenv("SISBR_EXE")
-USUARIO = os.getenv("USUARIO")
-SENHA = os.getenv("SENHA")
+LOGIN_USER = os.getenv("LOGIN_USER") or os.getenv("USUARIO")
+LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD") or os.getenv("SENHA")
+USUARIO = LOGIN_USER
+SENHA = LOGIN_PASSWORD
+COOP = os.getenv("COOP")
+NPAC = os.getenv("NPAC")

@@ -3,10 +3,11 @@ python-dotenv
 loguru
 requests
 msal
-jarbis_external_client
+#jarbis_external_client
 pywinauto
 selenium
 pyautogui
 pyperclip
 opencv-python
 psutil
+Pillow

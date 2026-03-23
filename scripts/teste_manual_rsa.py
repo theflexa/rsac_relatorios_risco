@@ -14,7 +14,7 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from rsac_relatorios_risco.manual.rsa_smoke_runner import (
-    DebugBrowserSession,
+    BrowserWindowSession,
     LibSisbrDesktopSession,
     ManualRsaSmokeRunner,
     default_lib_sisbr_path,
@@ -27,7 +27,6 @@ class ManualTestSettings:
     cooperativa: str
     download_dir: Path
     browser: str
-    debug_port: int
     skip_sisbr: bool
     sisbr_exe: str | None
     lib_sisbr_path: Path
@@ -41,12 +40,16 @@ class _Logger:
 # ============================================================
 # VARIAVEIS ESSENCIAIS DO TESTE MANUAL
 # Altere somente estes valores e aperte Run.
+# IMPORTANTE: este script precisa rodar na sessao normal do Windows.
+# Execucao sandboxed/virtualizada pode disparar falso erro de conectividade
+# no Sisbr ou fazer o OCR/click acertar outra janela no login.
 # ============================================================
+load_dotenv()
+
 COMPETENCIA = "03/2026"
-COOPERATIVA = "3333"
+COOPERATIVA = "3042"
 DOWNLOAD_DIR = PROJECT_ROOT / "temp" / "manual_rsa"
 BROWSER = "chrome"
-DEBUG_PORT = 9222
 SKIP_SISBR = False
 SISBR_EXE = None
 LIB_SISBR_PATH = default_lib_sisbr_path()
@@ -58,7 +61,6 @@ def current_settings() -> ManualTestSettings:
         cooperativa=COOPERATIVA,
         download_dir=Path(DOWNLOAD_DIR),
         browser=BROWSER,
-        debug_port=DEBUG_PORT,
         skip_sisbr=SKIP_SISBR,
         sisbr_exe=SISBR_EXE,
         lib_sisbr_path=Path(LIB_SISBR_PATH),
@@ -66,9 +68,8 @@ def current_settings() -> ManualTestSettings:
 
 
 def build_runner(settings: ManualTestSettings, logger: _Logger) -> ManualRsaSmokeRunner:
-    browser_session = DebugBrowserSession(
+    browser_session = BrowserWindowSession(
         browser=settings.browser,
-        debug_port=settings.debug_port,
     )
     sisbr_session = None
     if not settings.skip_sisbr:
@@ -98,7 +99,6 @@ def run_with_settings(settings: ManualTestSettings, logger=None) -> Path:
 
 
 def main() -> int:
-    load_dotenv()
     run_with_settings(current_settings())
     return 0
 

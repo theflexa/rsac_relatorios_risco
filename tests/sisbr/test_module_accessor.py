@@ -1,4 +1,4 @@
-from rsac_relatorios_risco.sisbr.module_accessor import SisbrModuleAccessor
+from rsac_relatorios_risco.sisbr.module_accessor import SisbrModuleAccessor, RSAC_MODULE_NAME
 
 
 class FakeBackend:
@@ -15,11 +15,11 @@ def test_accessor_calls_backend_with_rsa_module_name() -> None:
     accessor = SisbrModuleAccessor(
         win_principal="janela-principal",
         backend=backend,
-        module_name="RSA",
+        module_name=RSAC_MODULE_NAME,
         max_retentativas=5,
     )
 
     result = accessor.acessar_modulo_rsa()
 
     assert result == "janela-rsa"
-    assert backend.calls == [("janela-principal", "RSA", 5)]
+    assert backend.calls == [("janela-principal", RSAC_MODULE_NAME, 5)]

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from rsac_relatorios_risco.manual.rsa_smoke_runner import (
-    DebugBrowserSession,
+    BrowserWindowSession,
     ManualRsaSmokeRunner,
 )
 
@@ -26,9 +26,19 @@ class FakeSisbrSession:
 class FakeBrowserSession:
     def __init__(self) -> None:
         self.calls = 0
+        self.close_calls = 0
+        self.prepare_calls = 0
+        self.received_windows = []
 
-    def attach(self):
+    def close_preexisting_tabs(self):
+        self.close_calls += 1
+
+    def prepare_for_external_navigation(self):
+        self.prepare_calls += 1
+
+    def attach(self, browser_window=None):
         self.calls += 1
+        self.received_windows.append(browser_window)
         return object()
 
 
@@ -70,11 +80,16 @@ def test_manual_runner_executes_sisbr_attach_and_rsa_flow(tmp_path: Path):
 
     assert result == expected
     assert sisbr.calls == 1
+    assert browser.close_calls == 1
+    assert browser.prepare_calls == 1
     assert browser.calls == 1
+    assert browser.received_windows == ["janela-rsa"]
     assert captured["flow"].calls == [("03/2026", "3333", tmp_path)]
     assert logger.messages == [
+        "Fechando abas preexistentes do navegador",
+        "Preparando navegador para receber o portal do Sisbr",
         "Abrindo Sisbr, garantindo login e acessando modulo RSA",
-        "Anexando ao navegador com porta de depuracao",
+        "Conectando a janela do navegador aberta pelo Sisbr",
         "Executando jornada RSA completa",
         f"Arquivo gerado em {expected}",
     ]
@@ -101,33 +116,16 @@ def test_manual_runner_can_skip_sisbr(tmp_path: Path):
     )
 
     assert sisbr.calls == 0
+    assert browser.close_calls == 0
+    assert browser.prepare_calls == 0
+    assert browser.received_windows == [None]
 
 
-def test_debug_browser_session_sets_debugger_address():
-    created = {}
-
-    class FakeOptions:
-        debugger_address = None
-
-    def fake_options_factory(browser):
-        created["browser"] = browser
-        return FakeOptions()
-
-    def fake_driver_factory(browser, options):
-        created["driver"] = (browser, options.debugger_address)
-        return "driver"
-
-    session = DebugBrowserSession(
+def test_browser_window_session_reuses_window_from_sisbr():
+    session = BrowserWindowSession(
         browser="chrome",
-        debug_port=9333,
-        options_factory=fake_options_factory,
-        driver_factory=fake_driver_factory,
     )
 
-    result = session.attach()
+    result = session.attach(browser_window="janela-rsa")
 
-    assert result == "driver"
-    assert created == {
-        "browser": "chrome",
-        "driver": ("chrome", "127.0.0.1:9333"),
-    }
+    assert result == "janela-rsa"

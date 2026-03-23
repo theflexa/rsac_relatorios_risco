@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 
+RSAC_MODULE_NAME = "RISCOS SOCIAL, AMBIENTAL E CLIMÁTICO"
+
+
 class SisbrDependencyNotConfiguredError(RuntimeError):
     pass
 
@@ -18,7 +21,7 @@ class SisbrModuleAccessor:
         *,
         win_principal,
         backend=None,
-        module_name: str = "RSA",
+        module_name: str = RSAC_MODULE_NAME,
         max_retentativas: int = 3,
     ) -> None:
         self.win_principal = win_principal

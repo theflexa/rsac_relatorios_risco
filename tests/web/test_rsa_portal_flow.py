@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from rsac_relatorios_risco.web.rsa_portal_flow import (
+    RsaPortalAuthenticationError,
     RsaPortalFlow,
     RsaPortalPendingSelectorError,
 )
@@ -26,6 +27,34 @@ class FakeActions:
         return True
 
 
+class FakeSwitchTo:
+    def __init__(self, driver) -> None:
+        self.driver = driver
+
+    def window(self, handle):
+        self.driver.switch_calls.append(handle)
+        self.driver.current_window_handle = handle
+
+
+class FakeDriver:
+    def __init__(self, pages=None, current_handle="main") -> None:
+        self.pages = pages or {
+            "main": {"title": "Outra pagina", "url": "https://interna.exemplo.local"},
+        }
+        self.window_handles = list(self.pages.keys())
+        self.current_window_handle = current_handle
+        self.switch_calls: list[str] = []
+        self.switch_to = FakeSwitchTo(self)
+
+    @property
+    def title(self) -> str:
+        return self.pages[self.current_window_handle]["title"]
+
+    @property
+    def current_url(self) -> str:
+        return self.pages[self.current_window_handle]["url"]
+
+
 class FakeSaveAsFlow:
     def __init__(self) -> None:
         self.calls: list[Path] = []
@@ -37,6 +66,20 @@ class FakeSaveAsFlow:
 
 def _resolved_selectors():
     return SimpleNamespace(
+        Screen_RsaLogin=SimpleNamespace(
+            VALIDACAO_LOGIN="username",
+            VALIDACAO_LOGIN_TIPO="id",
+            INPUT_LOGIN="username",
+            INPUT_LOGIN_TIPO="id",
+            INPUT_SENHA="password",
+            INPUT_SENHA_TIPO="id",
+            BTN_LOGAR="kc-login",
+            BTN_LOGAR_TIPO="id",
+        ),
+        Screen_RsaBrowser=SimpleNamespace(
+            TITULO_CONTEM=("RSAC", "Riscos Social", "Climático"),
+            URL_CONTEM=("rsac",),
+        ),
         Screen_RsaHome=SimpleNamespace(
             VALIDACAO_HOME="//div[@id='home-rsa']",
             VALIDACAO_HOME_TIPO="xpath",
@@ -105,7 +148,7 @@ def test_flow_raises_clear_error_when_selector_is_still_pending():
 def test_flow_validates_home_when_selector_is_ready():
     actions = FakeActions()
     flow = RsaPortalFlow(
-        driver=object(),
+        driver=FakeDriver(),
         actions=actions,
         selectors_module=_resolved_selectors(),
     )
@@ -117,11 +160,101 @@ def test_flow_validates_home_when_selector_is_ready():
     ]
 
 
+def test_flow_reuses_existing_rsac_tab_before_validating_home():
+    actions = FakeActions()
+    driver = FakeDriver(
+        pages={
+            "main": {"title": "Pagina inicial", "url": "https://interna.exemplo.local"},
+            "rsac": {
+                "title": "RSAC - Riscos Social, Ambiental e Climático - Google Chrome",
+                "url": "https://rsa.sisbr.internal/rsac/home",
+            },
+        },
+        current_handle="main",
+    )
+    flow = RsaPortalFlow(
+        driver=driver,
+        actions=actions,
+        selectors_module=_resolved_selectors(),
+    )
+
+    flow.validar_home()
+
+    assert driver.current_window_handle == "rsac"
+    assert driver.switch_calls == ["main", "rsac"]
+    assert actions.calls == [
+        ("wait_element", "//div[@id='home-rsa']", "xpath", {}),
+    ]
+
+
+def test_flow_logs_into_rsac_when_browser_attaches_to_login_page(monkeypatch):
+    actions = FakeActions()
+    driver = FakeDriver(
+        pages={
+            "login": {
+                "title": "Login sisbr",
+                "url": "https://portal.sisbr.coop.br/auth/realms/sisbr/protocol/openid-connect/auth",
+            },
+        },
+        current_handle="login",
+    )
+    monkeypatch.setenv("LOGIN_USER", "rpas1004_00")
+    monkeypatch.setenv("LOGIN_PASSWORD", "senha-secreta")
+    flow = RsaPortalFlow(
+        driver=driver,
+        actions=actions,
+        selectors_module=_resolved_selectors(),
+    )
+
+    flow.validar_home()
+
+    assert actions.calls == [
+        ("type_into", "username", "rpas1004_00", "id", {"verify_text": True}),
+        ("type_into", "password", "senha-secreta", "id", {"verify_text": False}),
+        ("click", "kc-login", "id", {}),
+        ("wait_element", "//div[@id='home-rsa']", "xpath", {}),
+    ]
+
+
+def test_flow_raises_clear_error_when_login_page_has_no_credentials(monkeypatch):
+    actions = FakeActions()
+    driver = FakeDriver(
+        pages={
+            "login": {
+                "title": "Login sisbr",
+                "url": "https://portal.sisbr.coop.br/auth/realms/sisbr/protocol/openid-connect/auth",
+            },
+        },
+        current_handle="login",
+    )
+    monkeypatch.delenv("LOGIN_USER", raising=False)
+    monkeypatch.delenv("LOGIN_PASSWORD", raising=False)
+    monkeypatch.delenv("USUARIO", raising=False)
+    monkeypatch.delenv("SENHA", raising=False)
+    flow = RsaPortalFlow(
+        driver=driver,
+        actions=actions,
+        selectors_module=_resolved_selectors(),
+    )
+
+    with pytest.raises(RsaPortalAuthenticationError, match="LOGIN_USER/LOGIN_PASSWORD"):
+        flow.validar_home()
+
+
 def test_flow_executes_real_rsa_sequence_when_selectors_are_ready(tmp_path: Path):
     actions = FakeActions()
     save_as_flow = FakeSaveAsFlow()
     flow = RsaPortalFlow(
-        driver=object(),
+        driver=FakeDriver(
+            pages={
+                "main": {"title": "Pagina inicial", "url": "https://interna.exemplo.local"},
+                "rsac": {
+                    "title": "RSAC - Riscos Social, Ambiental e Climático - Google Chrome",
+                    "url": "https://rsa.sisbr.internal/rsac/home",
+                },
+            },
+            current_handle="main",
+        ),
         actions=actions,
         save_as_flow=save_as_flow,
         selectors_module=_resolved_selectors(),

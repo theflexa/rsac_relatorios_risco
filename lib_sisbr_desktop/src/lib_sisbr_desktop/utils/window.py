@@ -5,6 +5,13 @@ from loguru import logger
 import time
 import psutil
 import pyautogui
+import unicodedata
+
+
+def _normalize_window_title(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    ascii_only = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return " ".join(ascii_only.upper().split())
 
 def get_window_by_title(titulo: str, app: Application, timeout: int = 15, match_case: bool = False):
     """
@@ -40,7 +47,12 @@ def get_browser_with_tab(tab_title: str, timeout: int = 15):
                         for win in app.windows():
                             titulo_atual = win.window_text().strip()
                             # Verificar se o título contém o nome da aba
-                            if tab_title.upper() in titulo_atual.upper() or titulo_atual.upper() in tab_title.upper():
+                            normalized_expected = _normalize_window_title(tab_title)
+                            normalized_current = _normalize_window_title(titulo_atual)
+                            if (
+                                normalized_expected in normalized_current
+                                or normalized_current in normalized_expected
+                            ):
                                 logger.success(f"Navegador encontrado com aba '{tab_title}': {titulo_atual}")
                                 return win
                     except Exception as e:
@@ -52,6 +64,18 @@ def get_browser_with_tab(tab_title: str, timeout: int = 15):
         time.sleep(0.5)
     
     raise TimeoutError(f"Navegador com aba '{tab_title}' não foi encontrado em {timeout}s.")
+
+
+def get_browser_with_any_tab(tab_titles: list[str], timeout: int = 15):
+    last_error = None
+    for tab_title in tab_titles:
+        try:
+            return get_browser_with_tab(tab_title, timeout=timeout)
+        except Exception as exc:
+            last_error = exc
+    if last_error:
+        raise last_error
+    raise TimeoutError("Nenhum título de aba foi informado para busca no navegador.")
 
 
 def limpar_popups_comuns(win, max_loops=5, delay_entre_loops=1):

@@ -14,7 +14,7 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from rsac_relatorios_risco.manual.rsa_smoke_runner import (
-    DebugBrowserSession,
+    BrowserWindowSession,
     LibSisbrDesktopSession,
     ManualRsaSmokeRunner,
     default_lib_sisbr_path,
@@ -28,7 +28,11 @@ class _Logger:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Runner manual da jornada RSA para smoke test local.",
+        description=(
+            "Runner manual da jornada RSA para smoke test local. "
+            "Execute na sessao normal do Windows; sandbox/virtualizacao pode "
+            "causar falso erro de conectividade/login no Sisbr."
+        ),
     )
     parser.add_argument("--competencia", required=True, help="Competencia no formato MM/AAAA.")
     parser.add_argument("--cooperativa", required=True, help="Codigo da cooperativa.")
@@ -41,13 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--browser",
         choices=["chrome", "edge"],
         default="chrome",
-        help="Navegador anexado via porta de depuracao.",
-    )
-    parser.add_argument(
-        "--debug-port",
-        type=int,
-        default=9222,
-        help="Porta de depuracao do navegador.",
+        help="Navegador que o Sisbr usa para abrir o portal RSAC.",
     )
     parser.add_argument(
         "--skip-sisbr",
@@ -72,9 +70,8 @@ def main() -> int:
     args = build_parser().parse_args()
     logger = _Logger()
 
-    browser_session = DebugBrowserSession(
+    browser_session = BrowserWindowSession(
         browser=args.browser,
-        debug_port=args.debug_port,
     )
     sisbr_session = None
     if not args.skip_sisbr:

@@ -1,14 +1,100 @@
+import time
+
 from .window import get_window_by_title
+
+
+UPDATE_MESSAGE = "EFETUANDO DOWNLOAD DA ATUALIZAÇÃO!"
+MENU_LOADING_MESSAGE = "CARREGANDO MENU DE APLICATIVOS"
+WAIT_MESSAGE = "AGUARDE!"
+CONNECTIVITY_ERROR_MESSAGE = (
+    "Não foi possível efetuar conexão aos servidores do Sicoob Confederação. "
+    "Verifique a sua conexão de rede local na cooperativa ou o link de comunicação."
+)
+
+
+def _has_named_descendant(win, name: str) -> bool:
+    try:
+        for elem in win.descendants():
+            try:
+                if elem.element_info.name == name:
+                    return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    for control_type in ("Text", "Edit", "Button"):
+        try:
+            elementos = win.descendants(title=name, control_type=control_type)
+            if elementos:
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _has_module_search_field(win) -> bool:
+    try:
+        for edit in win.descendants(control_type="Edit"):
+            try:
+                r = edit.rectangle()
+                if (
+                    abs(r.left - 29) <= 15 and
+                    abs(r.top - 990) <= 15 and
+                    abs(r.right - 258) <= 2 and
+                    abs(r.bottom - 1009) <= 15
+                ):
+                    return True
+            except Exception:
+                continue
+    except Exception:
+        return False
+    return False
 
 def is_logado(win) -> bool:
     """
-    Verifica se o Sisbr está logado com base na presença do elemento "MENU DE APLICATIVOS SISBR".
+    Verifica se o Sisbr está logado com base em marcadores da tela principal.
     """
     try:
-        elementos = win.descendants(title="MENU DE APLICATIVOS SISBR", control_type="Text")
-        return len(elementos) > 0
-    except:
+        return (
+            _has_named_descendant(win, "MENU DE APLICATIVOS SISBR")
+            or _has_module_search_field(win)
+            or _has_named_descendant(win, "NOVA COOPERATIVA:")
+        )
+    except Exception:
         return False
+
+
+def is_updating(win) -> bool:
+    try:
+        return _has_named_descendant(win, UPDATE_MESSAGE)
+    except Exception:
+        return False
+
+
+def is_loading_menu(win) -> bool:
+    try:
+        return _has_named_descendant(win, MENU_LOADING_MESSAGE) or _has_named_descendant(win, WAIT_MESSAGE)
+    except Exception:
+        return False
+
+
+def has_connectivity_error(win) -> bool:
+    try:
+        return _has_named_descendant(win, CONNECTIVITY_ERROR_MESSAGE)
+    except Exception:
+        return False
+
+
+def wait_until_ready(win, timeout: float = 120.0, retry_delay: float = 1.0) -> bool:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if is_logado(win) and not is_loading_menu(win):
+            return True
+        if has_connectivity_error(win):
+            return False
+        time.sleep(retry_delay)
+    return False
 
 def is_modulo_aberto(nome_modulo: str, app) -> bool:
     try:
