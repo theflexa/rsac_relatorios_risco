@@ -65,15 +65,13 @@ class Screen_RsaLogin:
 
 class Screen_RsaMenuRelatorios:
     ITEM_RELATORIOS_RSAC = (
-        "//div[contains(@class, 'ss-toolbar-menu')]//a[contains(normalize-space(),'Riscos Social') and contains(normalize-space(),'Clim')]"
+        "//a[contains(@class,'ss-navbar-title') and contains(normalize-space(),'Riscos Social') and contains(normalize-space(),'Clim')]"
     )
     ITEM_RELATORIOS_RSAC_TIPO = By.XPATH
 
 
 class Screen_RsaFormulario:
-    VALIDACAO_TELA_FORMULARIO = (
-        "//div[contains(@class, 'cdk-overlay-container')]//h6[contains(normalize-space(),'Riscos Social') and contains(normalize-space(),'Clim')]"
-    )
+    VALIDACAO_TELA_FORMULARIO = "//button[@type='button' and @value='Exportar']"
     VALIDACAO_TELA_FORMULARIO_TIPO = By.XPATH
 
     SELECT_TIPO_RELATORIO = "tipo-relatorio"

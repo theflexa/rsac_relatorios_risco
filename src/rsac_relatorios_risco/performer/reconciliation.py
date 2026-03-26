@@ -12,7 +12,7 @@ def should_finalize_item(sheet_saved: bool, sharepoint_published: bool) -> bool:
 
 
 def should_retry_item(status: str, sheet_complete: bool) -> bool:
-    return status in {"aguardando", "em andamento"} and not sheet_complete
+    return status in {"pendente", "processando"} and not sheet_complete
 
 
 def reconcile_item_state(

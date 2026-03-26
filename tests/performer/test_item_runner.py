@@ -16,6 +16,10 @@ class FakeSisbrFlow:
 class FakeFlow:
     def __init__(self) -> None:
         self.calls = []
+        self.bound_windows = []
+
+    def bind_browser_window(self, browser_window):
+        self.bound_windows.append(browser_window)
 
     def validar_home(self):
         self.calls.append("validar_home")
@@ -83,4 +87,5 @@ def test_item_runner_executes_flow_for_single_item(tmp_path: Path):
     assert result.final_status == "sucesso"
     assert result.report_path.name == "relatorio.xlsx"
     assert sisbr_flow.calls == ["acessar_modulo_rsa"]
+    assert rsa_flow.bound_windows == ["janela-rsa"]
     assert rsa_flow.calls[0] == "validar_home"

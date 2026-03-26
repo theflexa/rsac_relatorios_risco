@@ -17,7 +17,9 @@ class PerformerItemRunner:
 
     def run(self, *, item, workbook_path: Path, download_dir: Path) -> ItemRunResult:
         data = item.data
-        self.sisbr_flow.acessar_modulo_rsa()
+        browser_window = self.sisbr_flow.acessar_modulo_rsa()
+        if hasattr(self.rsa_flow, "bind_browser_window"):
+            self.rsa_flow.bind_browser_window(browser_window)
         self.rsa_flow.validar_home()
         self.rsa_flow.preencher_filtros(
             competencia=data["competencia"],

@@ -35,7 +35,6 @@ def test_run_with_settings_uses_explicit_top_level_variables(monkeypatch):
         cooperativa="3333",
         download_dir=Path("temp/manual_rsa"),
         browser="chrome",
-        debug_port=9222,
         skip_sisbr=False,
         sisbr_exe="C:/Sisbr 2.0/Sisbr 2.0.exe",
         lib_sisbr_path=Path("C:/lib_sisbr_desktop"),

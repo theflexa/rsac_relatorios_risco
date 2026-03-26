@@ -2,6 +2,7 @@ from pathlib import Path
 
 from rsac_relatorios_risco.manual.rsa_smoke_runner import (
     BrowserWindowSession,
+    DebugBrowserSession,
     ManualRsaSmokeRunner,
 )
 
@@ -129,3 +130,69 @@ def test_browser_window_session_reuses_window_from_sisbr():
     result = session.attach(browser_window="janela-rsa")
 
     assert result == "janela-rsa"
+
+
+def test_debug_browser_session_launches_dedicated_debug_chrome_for_external_navigation(tmp_path: Path):
+    launches: list[list[str]] = []
+
+    session = DebugBrowserSession(
+        browser="chrome",
+        debug_port=9333,
+    )
+
+    session._launch_chrome = lambda args: launches.append(args)
+    session._wait_for_debug_port = lambda: True
+
+    session._ensure_debug_browser(
+        chrome_path=tmp_path / "chrome.exe",
+        user_data_dir=tmp_path / "debug-profile",
+        is_debug_port_open=lambda port: False,
+        is_process_running=lambda name: False,
+        kill_process=lambda name: None,
+        sleep=lambda seconds: None,
+    )
+
+    assert launches == [
+        [
+            str(tmp_path / "chrome.exe"),
+            "--remote-debugging-port=9333",
+            f"--user-data-dir={tmp_path / 'debug-profile'}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "about:blank",
+        ]
+    ]
+
+
+def test_debug_browser_session_navigates_to_rsac_portal_after_sisbr_opens_module():
+    class FakeOptions:
+        debugger_address = None
+
+    class FakeDriver:
+        def __init__(self) -> None:
+            self.visited_urls: list[str] = []
+
+        def get(self, url: str) -> None:
+            self.visited_urls.append(url)
+
+    created = {}
+
+    def fake_options_factory(browser):
+        created["browser"] = browser
+        return FakeOptions()
+
+    def fake_driver_factory(browser, options):
+        created["driver"] = (browser, options.debugger_address)
+        return FakeDriver()
+
+    session = DebugBrowserSession(
+        browser="chrome",
+        debug_port=9333,
+        options_factory=fake_options_factory,
+        driver_factory=fake_driver_factory,
+    )
+    session._ensure_debug_browser = lambda **kwargs: None
+
+    driver = session.attach(browser_window="janela-rsa")
+
+    assert driver.visited_urls == ["https://portal.sisbr.coop.br/rsa/"]

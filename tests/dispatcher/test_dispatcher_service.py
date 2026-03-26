@@ -55,7 +55,7 @@ def test_build_item_payload_preserves_sheet_reference():
     )
 
     assert payload["reference"] == "3333_RSAC_RISCO_032026"
-    assert payload["status"] == "aguardando"
+    assert payload["status"] == "pendente"
 
 
 def test_build_process_variables_uses_inserted_item_reference():
@@ -125,7 +125,7 @@ def test_dispatch_config_items_reuses_existing_reference_and_inserts_only_new_it
     assert len(inserted_payloads) == 1
     payload, variables = inserted_payloads[0]
     assert payload["reference"] == "4444_RSAC_RISCO_032026"
-    assert payload["status"] == "aguardando"
+    assert payload["status"] == "pendente"
     assert payload["data"]["cooperativa"] == "4444"
     assert payload["data"]["destinatarios"] == "default@sicoob.com"
     assert payload["data"]["sharepoint"] == "share/2026-03"

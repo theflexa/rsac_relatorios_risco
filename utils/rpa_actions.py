@@ -480,7 +480,7 @@ def kill_process(
             return True
         
         # Encerrar o processo forçadamente
-        kill_cmd = f'taskkill /F /IM {process_name}'
+        kill_cmd = f'taskkill /F /IM "{process_name}"'
         result = subprocess.run(
             kill_cmd,
             shell=True,

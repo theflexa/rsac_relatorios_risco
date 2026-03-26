@@ -1,4 +1,5 @@
 from rsac_relatorios_risco.performer.queue_selector import filter_eligible_items
+from utils.rpa_actions import kill_all_processes
 
 
 class _FallbackLogger:
@@ -40,6 +41,15 @@ class StepByStepPerformer:
 
     def run(self) -> dict:
         self.logger.info("Iniciando execução do Performer")
+        self.logger.info("Encerrando aplicações antes de iniciar")
+        kill_all_processes()
+        try:
+            return self._run_items()
+        finally:
+            self.logger.info("Encerrando aplicações ao finalizar")
+            kill_all_processes()
+
+    def _run_items(self) -> dict:
         self.logger.info("Coletando itens elegíveis")
         items = self.queue_repository.list_items()
         eligible = filter_eligible_items(items, self.max_attempts)
@@ -63,7 +73,9 @@ class StepByStepPerformer:
             item = self.item_updater.mark_processing(item)
 
             self.logger.info("Acessando módulo RSA via Sisbr Desktop")
-            self.sisbr_flow.acessar_modulo_rsa()
+            browser_window = self.sisbr_flow.acessar_modulo_rsa()
+            if hasattr(self.rsa_flow, "bind_browser_window"):
+                self.rsa_flow.bind_browser_window(browser_window)
 
             self.logger.info("Validando home RSA no navegador")
             self.rsa_flow.validar_home()

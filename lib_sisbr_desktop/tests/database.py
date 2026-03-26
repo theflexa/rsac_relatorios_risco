@@ -49,7 +49,7 @@ def insert_job(config):
     payload = {
         "project_id": int(config["project_id"]),
         "execution_date": execution_date,
-        "status": "aguardando"  # Enum permitido: aguardando, em andamento, cancelado, finalizado
+        "status": "pendente"  # Enum permitido: pendente, processando, sucesso, erro sistêmico, exceção negocial
     }
     print("URL:", url)
     print("HEADERS:", headers)

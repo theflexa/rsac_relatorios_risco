@@ -54,6 +54,9 @@ class FakeDriver:
     def current_url(self) -> str:
         return self.pages[self.current_window_handle]["url"]
 
+    def get(self, url: str) -> None:
+        self.pages[self.current_window_handle]["url"] = url
+
 
 class FakeSaveAsFlow:
     def __init__(self) -> None:
@@ -156,7 +159,7 @@ def test_flow_validates_home_when_selector_is_ready():
     flow.validar_home()
 
     assert actions.calls == [
-        ("wait_element", "//div[@id='home-rsa']", "xpath", {}),
+        ("wait_element", "//div[@id='home-rsa']", "xpath", {"timeout": 10}),
     ]
 
 
@@ -183,7 +186,7 @@ def test_flow_reuses_existing_rsac_tab_before_validating_home():
     assert driver.current_window_handle == "rsac"
     assert driver.switch_calls == ["main", "rsac"]
     assert actions.calls == [
-        ("wait_element", "//div[@id='home-rsa']", "xpath", {}),
+        ("wait_element", "//div[@id='home-rsa']", "xpath", {"timeout": 10}),
     ]
 
 
@@ -212,8 +215,38 @@ def test_flow_logs_into_rsac_when_browser_attaches_to_login_page(monkeypatch):
         ("type_into", "username", "rpas1004_00", "id", {"verify_text": True}),
         ("type_into", "password", "senha-secreta", "id", {"verify_text": False}),
         ("click", "kc-login", "id", {}),
-        ("wait_element", "//div[@id='home-rsa']", "xpath", {}),
+        ("wait_element", "//div[@id='home-rsa']", "xpath", {"timeout": 30}),
     ]
+
+
+def test_flow_falls_back_to_direct_risco_route_when_menu_click_does_not_open_form():
+    class FailingMenuActions(FakeActions):
+        def click(self, driver, selector, selector_type, **kwargs):
+            self.calls.append(("click", selector, selector_type, kwargs))
+            if selector == "//a[@id='menu-rsac']":
+                raise RuntimeError("menu item did not open form")
+            return True
+
+    actions = FailingMenuActions()
+    driver = FakeDriver(
+        pages={
+            "rsac": {
+                "title": "RSAC - Riscos Social, Ambiental e Climático - Google Chrome",
+                "url": "https://portal.sisbr.coop.br/rsa/",
+            },
+        },
+        current_handle="rsac",
+    )
+    flow = RsaPortalFlow(
+        driver=driver,
+        actions=actions,
+        selectors_module=_resolved_selectors(),
+    )
+
+    flow.abrir_relatorio_rsac()
+
+    assert driver.current_url == "https://portal.sisbr.coop.br/rsa/risco"
+    assert actions.calls[-1] == ("wait_element", "//h6[@id='titulo-rsac']", "xpath", {"condition": "present", "timeout": 40})
 
 
 def test_flow_raises_clear_error_when_login_page_has_no_credentials(monkeypatch):
@@ -268,7 +301,7 @@ def test_flow_executes_real_rsa_sequence_when_selectors_are_ready(tmp_path: Path
 
     assert destino == tmp_path / "relatorio_3333_032026.xlsx"
     assert save_as_flow.calls == [tmp_path / "relatorio_3333_032026.xlsx"]
-    assert actions.calls[0] == ("wait_element", "//div[@id='home-rsa']", "xpath", {})
+    assert actions.calls[0] == ("wait_element", "//div[@id='home-rsa']", "xpath", {"timeout": 10})
     assert ("click", "//button[@id='menu-relatorios']", "xpath", {}) in actions.calls
     assert (
         "click",

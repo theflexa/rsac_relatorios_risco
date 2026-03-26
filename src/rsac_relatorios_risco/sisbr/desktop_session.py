@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 from rsac_relatorios_risco.sisbr.login_service import SisbrLoginService
 from rsac_relatorios_risco.sisbr.module_accessor import SisbrModuleAccessor
+from utils.rpa_actions import kill_process
 
 
 class SisbrConnectivityError(RuntimeError):
+    pass
+
+
+class SisbrInitializationError(RuntimeError):
+    """Ocorreu problemas na inicialização do Sisbr 2.0, indisponibilidade da aplicação."""
     pass
 
 
@@ -51,6 +58,21 @@ class _LibSisbrStatusBackend:
 
         return bool(has_connectivity_error(win_principal))
 
+    def has_io_error(self, win_principal) -> bool:
+        from lib_sisbr_desktop.src.lib_sisbr_desktop.utils.status import has_io_error  # type: ignore
+
+        return bool(has_io_error(win_principal))
+
+    def has_restart_prompt(self, win_principal) -> bool:
+        from lib_sisbr_desktop.src.lib_sisbr_desktop.utils.status import has_restart_prompt  # type: ignore
+
+        return bool(has_restart_prompt(win_principal))
+
+    def click_restart_button(self, win_principal) -> bool:
+        from lib_sisbr_desktop.src.lib_sisbr_desktop.utils.status import click_restart_button  # type: ignore
+
+        return bool(click_restart_button(win_principal))
+
 
 class _LibSisbrAccessorBackend:
     def acessar_modulo(self, win_principal, nome_modulo: str, max_retentativas: int = 3):
@@ -91,40 +113,70 @@ class LibSisbrDesktopSession:
 
     def ensure_rsa_open(self):
         self.bootstrap_sys_path()
+        max_attempts = self.max_retentativas
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                win_principal = self._open_and_prepare_sisbr()
+                accessor = SisbrModuleAccessor(
+                    win_principal=win_principal,
+                    backend=self.accessor_backend,
+                    module_name=self.module_name,
+                    max_retentativas=self.max_retentativas,
+                )
+                return accessor.acessar_modulo_rsa()
+            except SisbrInitializationError:
+                if attempt >= max_attempts:
+                    raise SisbrInitializationError(
+                        f"Ocorreu problemas na inicialização do Sisbr 2.0, indisponibilidade da aplicação. "
+                        f"Tentativas realizadas: {max_attempts}.",
+                    )
+                kill_process("Sisbr 2.0.exe")
+                time.sleep(5)
+
+    def _open_and_prepare_sisbr(self):
         app, win_principal = self._open_sisbr()
         del app
-        if self.status_backend.has_connectivity_error(win_principal):
-            raise SisbrConnectivityError(
-                "Sisbr exibiu a tela de erro de conectividade com o Sicoob Confederacao antes do login.",
-            )
+
+        # Verifica tela de reiniciar (atualização pendente)
+        if self.status_backend.has_restart_prompt(win_principal):
+            self.status_backend.click_restart_button(win_principal)
+            time.sleep(15)
+            app, win_principal = self._open_sisbr()
+            del app
+
+        # Verifica erro de inicialização (IO ERROR! / conectividade)
+        self._check_initialization_error(win_principal)
+
         if self.status_backend.is_logado(win_principal):
             pass
         elif self.status_backend.is_updating(win_principal):
             if not self.status_backend.wait_until_ready(win_principal, timeout=180.0):
-                if self.status_backend.has_connectivity_error(win_principal):
-                    raise SisbrConnectivityError(
-                        "Sisbr exibiu a tela de erro de conectividade com o Sicoob Confederacao durante a inicializacao.",
-                    )
+                self._check_initialization_error(win_principal)
                 raise RuntimeError(
                     "Sisbr permaneceu na tela de atualização e não chegou à tela principal em tempo hábil.",
                 )
         else:
             self.login_service.ensure_logged_in(win_principal)
             if not self.status_backend.wait_until_ready(win_principal, timeout=180.0):
-                if self.status_backend.has_connectivity_error(win_principal):
-                    raise SisbrConnectivityError(
-                        "Sisbr exibiu a tela de erro de conectividade com o Sicoob Confederacao apos o login.",
-                    )
+                self._check_initialization_error(win_principal)
                 raise RuntimeError(
                     "Login executado, mas o Sisbr não chegou à tela principal em tempo hábil.",
                 )
-        accessor = SisbrModuleAccessor(
-            win_principal=win_principal,
-            backend=self.accessor_backend,
-            module_name=self.module_name,
-            max_retentativas=self.max_retentativas,
+
+        return win_principal
+
+    def _has_initialization_error(self, win_principal) -> bool:
+        return (
+            self.status_backend.has_io_error(win_principal)
+            or self.status_backend.has_connectivity_error(win_principal)
         )
-        return accessor.acessar_modulo_rsa()
+
+    def _check_initialization_error(self, win_principal) -> None:
+        if self._has_initialization_error(win_principal):
+            raise SisbrInitializationError(
+                "Ocorreu problemas na inicialização do Sisbr 2.0, indisponibilidade da aplicação.",
+            )
 
     def _open_sisbr(self):
         return self.open_backend.abrir_sisbr(caminho_exe=self.sisbr_exe)

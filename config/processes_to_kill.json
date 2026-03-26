@@ -1,0 +1,6 @@
+{
+    "processes": [
+        {"name": "chrome.exe", "friendly_name": "Google Chrome"},
+        {"name": "Sisbr 2.0.exe", "friendly_name": "Sisbr 2.0"}
+    ]
+}

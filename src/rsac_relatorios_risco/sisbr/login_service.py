@@ -17,13 +17,24 @@ class _MissingLoginBackend:
 
 
 class SisbrLoginService:
-    def __init__(self, *, backend=None) -> None:
+    def __init__(self, *, backend=None, max_attempts: int = 3) -> None:
         self.backend = backend or _MissingLoginBackend()
+        self.max_attempts = max_attempts
 
     def ensure_logged_in(self, win_principal=None) -> bool:
-        success = bool(self.backend.login(win_principal))
-        if not success:
-            raise SisbrLoginFailedError(
-                "Falha no login do Sisbr. Verifique LOGIN_USER e LOGIN_PASSWORD no .env antes de acessar o modulo.",
-            )
-        return True
+        last_error = None
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                success = bool(self.backend.login(win_principal))
+                if success:
+                    return True
+            except Exception as exc:
+                last_error = exc
+            if attempt < self.max_attempts:
+                import time
+                time.sleep(2)
+        raise SisbrLoginFailedError(
+            f"Falha no login do Sisbr apos {self.max_attempts} tentativas. "
+            "Verifique LOGIN_USER e LOGIN_PASSWORD no .env antes de acessar o modulo."
+            + (f" Ultimo erro: {last_error}" if last_error else ""),
+        )

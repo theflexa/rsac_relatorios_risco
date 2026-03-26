@@ -19,6 +19,7 @@ from rsac_relatorios_risco.manual.rsa_smoke_runner import (
     ManualRsaSmokeRunner,
     default_lib_sisbr_path,
 )
+from rsac_relatorios_risco.web.browser_window_flow import BrowserWindowPortalFlow
 
 
 class _Logger:
@@ -84,6 +85,7 @@ def main() -> int:
         browser_session=browser_session,
         sisbr_session=sisbr_session,
         logger=logger,
+        rsa_flow_factory=lambda browser_window: BrowserWindowPortalFlow(browser_window=browser_window),
     )
     output_path = runner.run(
         competencia=args.competencia,

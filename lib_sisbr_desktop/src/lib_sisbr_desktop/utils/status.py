@@ -1,5 +1,7 @@
 import time
 
+from loguru import logger
+
 from .window import get_window_by_title
 
 
@@ -10,6 +12,8 @@ CONNECTIVITY_ERROR_MESSAGE = (
     "Não foi possível efetuar conexão aos servidores do Sicoob Confederação. "
     "Verifique a sua conexão de rede local na cooperativa ou o link de comunicação."
 )
+RESTART_MESSAGE = "REINICIAR AGORA!"
+IO_ERROR_TITLE = "IO ERROR!"
 
 
 def _has_named_descendant(win, name: str) -> bool:
@@ -95,6 +99,40 @@ def wait_until_ready(win, timeout: float = 120.0, retry_delay: float = 1.0) -> b
             return False
         time.sleep(retry_delay)
     return False
+
+def has_restart_prompt(win) -> bool:
+    """Verifica se o Sisbr está exibindo a tela de 'REINICIAR AGORA!'."""
+    try:
+        return _has_named_descendant(win, RESTART_MESSAGE)
+    except Exception:
+        return False
+
+
+def click_restart_button(win) -> bool:
+    """Clica no botão 'REINICIAR AGORA!' se presente."""
+    try:
+        for elem in win.descendants():
+            try:
+                if elem.element_info.name == RESTART_MESSAGE:
+                    elem.click_input()
+                    logger.info("[Status] Botão 'REINICIAR AGORA!' clicado.")
+                    return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return False
+
+
+def has_io_error(win) -> bool:
+    """Verifica se a janela de IO ERROR! está presente (erro de inicialização)."""
+    try:
+        return _has_named_descendant(win, IO_ERROR_TITLE) or _has_named_descendant(
+            win, CONNECTIVITY_ERROR_MESSAGE
+        )
+    except Exception:
+        return False
+
 
 def is_modulo_aberto(nome_modulo: str, app) -> bool:
     try:

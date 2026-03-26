@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 SRC_PATH = PROJECT_ROOT / "src"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -19,6 +20,8 @@ from rsac_relatorios_risco.manual.rsa_smoke_runner import (
     ManualRsaSmokeRunner,
     default_lib_sisbr_path,
 )
+from rsac_relatorios_risco.web.browser_window_flow import BrowserWindowPortalFlow
+from utils.rpa_actions import kill_all_processes
 
 
 @dataclass(slots=True)
@@ -81,6 +84,7 @@ def build_runner(settings: ManualTestSettings, logger: _Logger) -> ManualRsaSmok
         browser_session=browser_session,
         sisbr_session=sisbr_session,
         logger=logger,
+        rsa_flow_factory=lambda browser_window: BrowserWindowPortalFlow(browser_window=browser_window),
     )
 
 
@@ -99,8 +103,14 @@ def run_with_settings(settings: ManualTestSettings, logger=None) -> Path:
 
 
 def main() -> int:
-    run_with_settings(current_settings())
-    return 0
+    kill_all_processes()
+    try:
+        run_with_settings(current_settings())
+        return 0
+    except Exception:
+        raise
+    finally:
+        kill_all_processes()
 
 
 if __name__ == "__main__":

@@ -3,7 +3,9 @@ python-dotenv
 loguru
 requests
 msal
-#jarbis_external_client
+# jarbis-external-client: instalar manualmente via git (contém token privado)
+# pip install git+https://<TOKEN>@git.agdtech.site/bu-tech/code/agd/jarbis-external-client.git@suite-teste
+jarbis-external-client
 pywinauto
 selenium
 pyautogui

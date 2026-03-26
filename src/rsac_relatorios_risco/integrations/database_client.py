@@ -8,6 +8,6 @@ def build_item_payload(
         "project_id": project_id,
         "job_id": job_id,
         "data": json_data,
-        "status": "aguardando",
+        "status": "pendente",
         "reference": reference,
     }

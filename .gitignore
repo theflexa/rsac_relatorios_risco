@@ -4,3 +4,7 @@ __pycache__/
 .env
 .skill-drafts/
 temp/
+.venv/
+.idea/
+.vscode/
+.claude/

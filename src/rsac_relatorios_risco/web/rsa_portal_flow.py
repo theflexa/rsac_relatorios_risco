@@ -17,6 +17,8 @@ class RsaPortalAuthenticationError(RsaPortalNotReadyError):
 
 
 class RsaPortalFlow:
+    RSA_RISCO_URL = "https://portal.sisbr.coop.br/rsa/risco"
+
     def __init__(
         self,
         driver,
@@ -33,13 +35,14 @@ class RsaPortalFlow:
 
     def validar_home(self) -> None:
         self._ensure_browser_context()
-        self._login_if_needed()
+        logged_in_now = self._login_if_needed()
         home = self.selectors.Screen_RsaHome
         self._ensure_ready("VALIDACAO_HOME", home.VALIDACAO_HOME)
         self.actions.wait_element(
             self.driver,
             home.VALIDACAO_HOME,
             home.VALIDACAO_HOME_TIPO,
+            timeout=30 if logged_in_now else 10,
         )
 
     def abrir_menu_relatorios(self) -> None:
@@ -59,13 +62,23 @@ class RsaPortalFlow:
             "VALIDACAO_TELA_FORMULARIO",
             formulario.VALIDACAO_TELA_FORMULARIO,
         )
-        self.actions.click(
-            self.driver,
-            menu.ITEM_RELATORIOS_RSAC,
-            menu.ITEM_RELATORIOS_RSAC_TIPO,
-            verify_selector=formulario.VALIDACAO_TELA_FORMULARIO,
-            verify_type=formulario.VALIDACAO_TELA_FORMULARIO_TIPO,
-        )
+        try:
+            self.actions.click(
+                self.driver,
+                menu.ITEM_RELATORIOS_RSAC,
+                menu.ITEM_RELATORIOS_RSAC_TIPO,
+                verify_selector=formulario.VALIDACAO_TELA_FORMULARIO,
+                verify_type=formulario.VALIDACAO_TELA_FORMULARIO_TIPO,
+            )
+        except Exception:
+            self.driver.get(self.RSA_RISCO_URL)
+            self.actions.wait_element(
+                self.driver,
+                formulario.VALIDACAO_TELA_FORMULARIO,
+                formulario.VALIDACAO_TELA_FORMULARIO_TIPO,
+                condition="present",
+                timeout=40,
+            )
 
     def preencher_formulario(self, *, competencia: str, cooperativa: str) -> None:
         screen = self.selectors.Screen_RsaFormulario
@@ -316,10 +329,10 @@ class RsaPortalFlow:
         url_match = any(keyword and keyword in current_url for keyword in url_keywords)
         return title_match or url_match
 
-    def _login_if_needed(self) -> None:
+    def _login_if_needed(self) -> bool:
         login_screen = getattr(self.selectors, "Screen_RsaLogin", None)
         if login_screen is None or not self._is_login_context():
-            return
+            return False
 
         login_user = os.getenv("LOGIN_USER") or os.getenv("USUARIO")
         login_password = os.getenv("LOGIN_PASSWORD") or os.getenv("SENHA")
@@ -347,6 +360,7 @@ class RsaPortalFlow:
             login_screen.BTN_LOGAR,
             login_screen.BTN_LOGAR_TIPO,
         )
+        return True
 
     def _is_login_context(self) -> bool:
         title = self._normalize_text(getattr(self.driver, "title", ""))

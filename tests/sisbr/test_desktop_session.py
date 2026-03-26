@@ -1,6 +1,10 @@
 import pytest
 
-from rsac_relatorios_risco.sisbr.desktop_session import LibSisbrDesktopSession, RSAC_MODULE_NAME
+from rsac_relatorios_risco.sisbr.desktop_session import (
+    LibSisbrDesktopSession,
+    RSAC_MODULE_NAME,
+    SisbrInitializationError,
+)
 from rsac_relatorios_risco.sisbr.login_service import SisbrLoginFailedError
 
 
@@ -31,10 +35,21 @@ class FakeLoginService:
 
 
 class FakeStatusBackend:
-    def __init__(self, *, is_logado=False, is_updating=False, has_connectivity_error=False, wait_until_ready_result=True) -> None:
+    def __init__(
+        self,
+        *,
+        is_logado=False,
+        is_updating=False,
+        has_connectivity_error=False,
+        has_io_error=False,
+        has_restart_prompt=False,
+        wait_until_ready_result=True,
+    ) -> None:
         self.is_logado_value = is_logado
         self.is_updating_value = is_updating
         self.has_connectivity_error_value = has_connectivity_error
+        self.has_io_error_value = has_io_error
+        self.has_restart_prompt_value = has_restart_prompt
         self.wait_until_ready_result = wait_until_ready_result
         self.calls = []
 
@@ -47,6 +62,15 @@ class FakeStatusBackend:
 
     def has_connectivity_error(self, win_principal):
         return self.has_connectivity_error_value
+
+    def has_io_error(self, win_principal):
+        return self.has_io_error_value
+
+    def has_restart_prompt(self, win_principal):
+        return self.has_restart_prompt_value
+
+    def click_restart_button(self, win_principal):
+        return True
 
     def wait_until_ready(self, win_principal, timeout=120.0):
         return self.wait_until_ready_result
@@ -153,3 +177,98 @@ def test_session_skips_login_when_sisbr_is_already_logged_in():
     assert status_backend.calls == ["janela-principal"]
     assert login_service.calls == 0
     assert accessor_backend.calls == [("janela-principal", RSAC_MODULE_NAME, 3)]
+
+
+def test_session_raises_initialization_error_on_io_error_after_retries(monkeypatch):
+    monkeypatch.setattr("rsac_relatorios_risco.sisbr.desktop_session.kill_process", lambda *a, **kw: True)
+    open_backend = FakeOpenBackend()
+    session = LibSisbrDesktopSession(
+        lib_path="C:/lib_sisbr_desktop",
+        bootstrap_sys_path=lambda: None,
+        open_backend=open_backend,
+        login_service=FakeLoginService(),
+        accessor_backend=FakeAccessorBackend(),
+        status_backend=FakeStatusBackend(has_io_error=True),
+        max_retentativas=3,
+    )
+
+    with pytest.raises(SisbrInitializationError, match="Tentativas realizadas: 3"):
+        session.ensure_rsa_open()
+
+    # Deve ter tentado abrir 3 vezes
+    assert len(open_backend.calls) == 3
+
+
+def test_session_clicks_restart_and_reopens_sisbr():
+    open_backend = FakeOpenBackend()
+    status_backend = FakeStatusBackend(has_restart_prompt=True, is_logado=False)
+    login_service = FakeLoginService()
+    accessor_backend = FakeAccessorBackend()
+    session = LibSisbrDesktopSession(
+        lib_path="C:/lib_sisbr_desktop",
+        bootstrap_sys_path=lambda: None,
+        open_backend=open_backend,
+        login_service=login_service,
+        accessor_backend=accessor_backend,
+        status_backend=status_backend,
+    )
+
+    result = session.ensure_rsa_open()
+
+    assert result == "janela-rsa"
+    # Sisbr opened twice: initial + after restart
+    assert len(open_backend.calls) == 2
+
+
+def test_session_raises_initialization_error_on_connectivity_error_after_retries(monkeypatch):
+    monkeypatch.setattr("rsac_relatorios_risco.sisbr.desktop_session.kill_process", lambda *a, **kw: True)
+    open_backend = FakeOpenBackend()
+    session = LibSisbrDesktopSession(
+        lib_path="C:/lib_sisbr_desktop",
+        bootstrap_sys_path=lambda: None,
+        open_backend=open_backend,
+        login_service=FakeLoginService(),
+        accessor_backend=FakeAccessorBackend(),
+        status_backend=FakeStatusBackend(has_connectivity_error=True),
+        max_retentativas=3,
+    )
+
+    with pytest.raises(SisbrInitializationError, match="Tentativas realizadas: 3"):
+        session.ensure_rsa_open()
+
+    assert len(open_backend.calls) == 3
+
+
+def test_session_retries_when_connectivity_fails_during_update(monkeypatch):
+    monkeypatch.setattr("rsac_relatorios_risco.sisbr.desktop_session.kill_process", lambda *a, **kw: True)
+    open_backend = FakeOpenBackend()
+    status = FakeStatusBackend(
+        is_updating=True,
+        has_connectivity_error=False,
+        wait_until_ready_result=False,
+    )
+    # Simula connectivity error aparecendo após wait_until_ready falhar
+    original_wait = status.wait_until_ready
+
+    def wait_then_set_error(win, timeout=120.0):
+        result = original_wait(win, timeout)
+        status.has_connectivity_error_value = True
+        return result
+
+    status.wait_until_ready = wait_then_set_error
+
+    session = LibSisbrDesktopSession(
+        lib_path="C:/lib_sisbr_desktop",
+        bootstrap_sys_path=lambda: None,
+        open_backend=open_backend,
+        login_service=FakeLoginService(),
+        accessor_backend=FakeAccessorBackend(),
+        status_backend=status,
+        max_retentativas=3,
+    )
+
+    with pytest.raises(SisbrInitializationError, match="Tentativas realizadas: 3"):
+        session.ensure_rsa_open()
+
+    # Deve ter tentado abrir 3 vezes
+    assert len(open_backend.calls) == 3

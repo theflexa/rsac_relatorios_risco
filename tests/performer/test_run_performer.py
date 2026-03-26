@@ -49,6 +49,10 @@ class FakeSisbrFlow:
 class FakeRsaFlow:
     def __init__(self) -> None:
         self.calls = []
+        self.bound_windows = []
+
+    def bind_browser_window(self, browser_window):
+        self.bound_windows.append(browser_window)
 
     def validar_home(self):
         self.calls.append("validar_home")
@@ -134,6 +138,7 @@ def test_step_by_step_performer_runs_linear_flow_with_clear_logs(tmp_path: Path)
 
     assert summary["concluidos"] == ["3333_RSAC_RISCO_032026"]
     assert email_service.summary == summary
+    assert runner.rsa_flow.bound_windows == ["janela-rsa"]
     assert logger.messages == [
         "Iniciando execução do Performer",
         "Coletando itens elegíveis",

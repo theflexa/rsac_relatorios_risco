@@ -49,10 +49,7 @@ class BrowserWindowSession:
         self.desktop_factory = desktop_factory or self._default_desktop_factory
 
     def close_preexisting_tabs(self) -> None:
-        process_name = _browser_process_name(self.browser)
-        if process_name and _is_process_running(process_name):
-            _kill_process(process_name)
-            time.sleep(2)
+        return None
 
     def attach(self, browser_window=None):
         if browser_window is not None:
@@ -79,6 +76,8 @@ class BrowserWindowSession:
 
 
 class DebugBrowserSession:
+    RSA_PORTAL_URL = "https://portal.sisbr.coop.br/rsa/"
+
     def __init__(
         self,
         *,
@@ -104,29 +103,49 @@ class DebugBrowserSession:
         self._ensure_debug_browser()
 
     def attach(self, browser_window=None):
-        del browser_window
         self._ensure_debug_browser()
         options = self.options_factory(self.browser)
         options.debugger_address = f"127.0.0.1:{self.debug_port}"
-        return self.driver_factory(self.browser, options)
+        driver = self.driver_factory(self.browser, options)
+        if browser_window is not None:
+            driver.get(self.RSA_PORTAL_URL)
+        return driver
 
-    def _ensure_debug_browser(self) -> None:
-        if _is_debug_port_open(self.debug_port):
+    def _ensure_debug_browser(
+        self,
+        *,
+        chrome_path: Path | None = None,
+        user_data_dir: Path | None = None,
+        is_debug_port_open=None,
+        is_process_running=None,
+        kill_process=None,
+        sleep=None,
+    ) -> None:
+        is_debug_port_open = is_debug_port_open or _is_debug_port_open
+        is_process_running = is_process_running or _is_process_running
+        kill_process = kill_process or _kill_process
+        sleep = sleep or time.sleep
+        if is_debug_port_open(self.debug_port):
             return
         if self.browser != "chrome":
             raise ManualRunnerDependencyError(
                 f"Porta de depuracao {self.debug_port} indisponivel para o navegador '{self.browser}'.",
             )
 
-        chrome_path = _find_chrome_binary()
+        chrome_path = chrome_path or _find_chrome_binary()
         if chrome_path is None:
             raise ManualRunnerDependencyError(
                 "Chrome nao encontrado para iniciar a sessao com porta de depuracao.",
             )
+        user_data_dir = user_data_dir or _default_debug_profile_dir(self.debug_port)
+        user_data_dir.mkdir(parents=True, exist_ok=True)
 
         launch_args = [
             str(chrome_path),
             f"--remote-debugging-port={self.debug_port}",
+            f"--user-data-dir={user_data_dir}",
+            "--no-first-run",
+            "--no-default-browser-check",
             "about:blank",
         ]
 
@@ -134,9 +153,9 @@ class DebugBrowserSession:
         if self._wait_for_debug_port():
             return
 
-        if self.restart_existing_browser and _is_process_running("chrome.exe"):
-            _kill_process("chrome.exe")
-            time.sleep(2)
+        if self.restart_existing_browser and is_process_running("chrome.exe"):
+            kill_process("chrome.exe")
+            sleep(2)
             self._launch_chrome(launch_args)
             if self._wait_for_debug_port():
                 return
@@ -228,6 +247,14 @@ class ManualRsaSmokeRunner:
         download_dir = Path(download_dir)
         download_dir.mkdir(parents=True, exist_ok=True)
 
+        # Verifica se o relatório já foi baixado para esta cooperativa/competência
+        expected_path = self._expected_download_path(download_dir, cooperativa, competencia)
+        if expected_path.exists():
+            self.logger.info(
+                f"Relatorio ja existe em {expected_path}, pulando download"
+            )
+            return expected_path
+
         if not skip_sisbr and self.sisbr_session is not None:
             if hasattr(self.browser_session, "close_preexisting_tabs"):
                 self.logger.info("Fechando abas preexistentes do navegador")
@@ -249,8 +276,20 @@ class ManualRsaSmokeRunner:
             cooperativa=cooperativa,
             download_dir=download_dir,
         )
-        self.logger.info(f"Arquivo gerado em {output_path}")
+
+        # Confirma que o arquivo foi realmente salvo no disco
+        if not output_path.exists():
+            raise RuntimeError(
+                f"Download do relatorio falhou: arquivo nao encontrado em {output_path}"
+            )
+
+        self.logger.info(f"Arquivo salvo e confirmado em {output_path}")
         return output_path
+
+    @staticmethod
+    def _expected_download_path(download_dir: Path, cooperativa: str, competencia: str) -> Path:
+        competencia_clean = competencia.replace("/", "")
+        return download_dir / f"relatorio_{cooperativa}_{competencia_clean}.xlsx"
 
 
 def default_lib_sisbr_path() -> Path:
@@ -310,6 +349,11 @@ def _find_chrome_binary() -> Path | None:
         if candidate and Path(candidate).exists():
             return Path(candidate)
     return None
+
+
+def _default_debug_profile_dir(debug_port: int) -> Path:
+    base_dir = Path(os.getenv("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
+    return base_dir / "rsac_relatorios_risco" / f"chrome-debug-{debug_port}"
 
 
 def _browser_process_name(browser: str) -> str | None:
