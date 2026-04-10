@@ -185,6 +185,7 @@ class RsaPortalFlow:
             screen.TABELA_RELATORIOS,
             screen.TABELA_RELATORIOS_TIPO,
         )
+        self._validar_titulo_relatorio(relatorio=relatorio)
         botao_imprimir = screen.BTN_IMPRIMIR_TEMPLATE.format(
             relatorio=relatorio,
             situacao=situacao,
@@ -196,6 +197,29 @@ class RsaPortalFlow:
             screen.BTN_IMPRIMIR_TEMPLATE_TIPO,
         )
         return self.save_as_flow.save_file(self._build_download_path(download_dir))
+
+    def _validar_titulo_relatorio(self, *, relatorio: str) -> None:
+        titulo_xpath = (
+            "//table[@aria-label='Tabela de Resultados']"
+            f"//tr/td[2][normalize-space()='{relatorio}']"
+        )
+        try:
+            self.actions.wait_element(
+                self.driver,
+                titulo_xpath,
+                "xpath",
+                timeout=10,
+            )
+        except Exception:
+            all_titles_xpath = (
+                "//table[@aria-label='Tabela de Resultados']//tr/td[2]"
+            )
+            cells = self.driver.find_elements("xpath", all_titles_xpath)
+            titulos = [c.text.strip() for c in cells if c.text.strip()]
+            raise RuntimeError(
+                f"Titulo de relatorio esperado: {relatorio!r}. "
+                f"Titulos encontrados: {titulos!r}"
+            ) from None
 
     def executar_fluxo_exportacao(
         self,

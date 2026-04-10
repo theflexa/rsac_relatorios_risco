@@ -1,7 +1,6 @@
-"""Re-export de utils.sharepoint para compatibilidade."""
+"""Upload de arquivos para SharePoint via Microsoft Graph API."""
 from utils.sharepoint.client import (  # noqa: F401
     upload_file,
     build_rsac_folder_path,
     SharePointUploadError,
-    _parse_site_url,
 )

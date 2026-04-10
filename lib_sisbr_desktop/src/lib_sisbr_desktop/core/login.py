@@ -32,9 +32,8 @@ def login(win=None) -> bool:
 
     usuario_lib = config.LOGIN_USER
     senha_lib = config.LOGIN_PASSWORD
-    # Coop e npac, se for usar depois:
-    # coop_lib = os.getenv("COOP")
-    # npac_lib = os.getenv("NPAC")
+    coop_lib = config.COOP or "1004"
+    npac_lib = config.NPAC or "000"
 
     if not all([usuario_lib, senha_lib]):
         print(f"[ERROR][lib_sisbr_desktop.login] Credenciais (LOGIN_USER, LOGIN_PASSWORD) não configuradas no .env raiz do projeto: {repo_root}")

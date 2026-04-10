@@ -10,10 +10,11 @@ from rsac_relatorios_risco.windows.save_as_flow import (
 
 
 class FakeControl:
-    def __init__(self, *, title: str = "") -> None:
+    def __init__(self, *, title: str = "", visible: bool = True) -> None:
         self.calls: list[tuple] = []
         self.children: dict[tuple, FakeControl] = {}
         self.title = title
+        self._visible = visible
 
     def wait(self, condition: str, timeout: int):
         self.calls.append(("wait", condition, timeout))
@@ -30,9 +31,13 @@ class FakeControl:
 
     def click_input(self):
         self.calls.append(("click_input",))
+        self._visible = False
 
     def invoke(self):
         self.calls.append(("invoke",))
+
+    def is_visible(self):
+        return self._visible
 
     def child_window(self, **kwargs):
         self.calls.append(("child_window", kwargs))
@@ -85,7 +90,20 @@ def test_save_as_flow_fills_filename_clicks_save_and_handles_overwrite(tmp_path:
     def path_exists(path: Path) -> bool:
         return path == destination and state["exists"]
 
-    yes_button.invoke = lambda: (yes_button.calls.append(("invoke",)), state.__setitem__("exists", True))
+    # Clicking Save closes the save dialog
+    original_save_click_input = save_button.click_input
+    def save_click_input():
+        original_save_click_input()
+        save_dialog._visible = False
+    save_button.click_input = save_click_input
+
+    # Clicking Yes closes the overwrite dialog and creates the file
+    original_yes_click_input = yes_button.click_input
+    def yes_click_input():
+        original_yes_click_input()
+        overwrite_dialog._visible = False
+        state["exists"] = True
+    yes_button.click_input = yes_click_input
 
     desktop = FakeDesktop(
         {
@@ -117,11 +135,11 @@ def test_save_as_flow_fills_filename_clicks_save_and_handles_overwrite(tmp_path:
     ]
     assert save_button.calls == [
         ("wait", "visible enabled ready", 1),
-        ("invoke",),
+        ("click_input",),
     ]
     assert yes_button.calls == [
         ("wait", "visible enabled ready", 1),
-        ("invoke",),
+        ("click_input",),
     ]
 
 
@@ -138,7 +156,12 @@ def test_save_as_flow_returns_without_overwrite_dialog(tmp_path: Path):
     def path_exists(path: Path) -> bool:
         return path == destination and state["exists"]
 
-    save_button.invoke = lambda: (save_button.calls.append(("invoke",)), state.__setitem__("exists", True))
+    original_click_input = save_button.click_input
+    def save_click_input():
+        original_click_input()
+        save_dialog._visible = False
+        state["exists"] = True
+    save_button.click_input = save_click_input
     desktop = FakeDesktop({"Salvar como": save_dialog})
     flow = WindowsSaveAsFlow(
         desktop_factory=lambda backend: desktop,
@@ -193,7 +216,12 @@ def test_save_as_flow_can_find_dialog_by_enumeration(tmp_path: Path):
     def path_exists(path: Path) -> bool:
         return path == destination and state["exists"]
 
-    save_button.invoke = lambda: (save_button.calls.append(("invoke",)), state.__setitem__("exists", True))
+    original_click_input = save_button.click_input
+    def save_click_input():
+        original_click_input()
+        save_dialog._visible = False
+        state["exists"] = True
+    save_button.click_input = save_click_input
     desktop = FakeDesktop({"enum": save_dialog})
     flow = WindowsSaveAsFlow(
         desktop_factory=lambda backend: desktop,
@@ -220,7 +248,12 @@ def test_save_as_flow_can_match_button_with_accelerator_caption(tmp_path: Path):
     def path_exists(path: Path) -> bool:
         return path == destination and state["exists"]
 
-    save_button.invoke = lambda: (save_button.calls.append(("invoke",)), state.__setitem__("exists", True))
+    original_click_input = save_button.click_input
+    def save_click_input():
+        original_click_input()
+        save_dialog._visible = False
+        state["exists"] = True
+    save_button.click_input = save_click_input
     flow = WindowsSaveAsFlow(
         desktop_factory=lambda backend: FakeDesktop({"Salvar como": save_dialog}),
         path_exists=path_exists,

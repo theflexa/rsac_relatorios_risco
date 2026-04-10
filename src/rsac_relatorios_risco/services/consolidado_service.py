@@ -57,3 +57,11 @@ class ConsolidadoService:
             if row_has_data:
                 last_data_row = row_index
         return last_data_row
+
+
+# Wrapper de modulo para uso direto: apply_report(path, report)
+_default_service = ConsolidadoService()
+
+
+def apply_report(workbook_path: Path, report: ReportData) -> None:
+    _default_service.apply_report(workbook_path, report)

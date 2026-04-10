@@ -437,15 +437,16 @@ return (statusCell && statusCell.textContent || '').trim() || 'Status desconheci
         return self._run_script(body, timeout_seconds=45)
 
     def _click_print(self, *, relatorio: str, status: str | None = None) -> None:
+        self._validate_report_title(relatorio=relatorio)
         self._click_dom_target(
             f"""
-const rows = Array.from(document.querySelectorAll('table tr'));
-const row = rows.find(tr => {{
-  const text = tr.textContent || '';
-  return text.includes({relatorio!r}) && ({status!r} ? text.includes({status!r}) : true);
+const rows = Array.from(document.querySelectorAll('table tr')).filter(tr => tr.querySelector('td'));
+const target = rows.find(tr => {{
+  const cells = Array.from(tr.querySelectorAll('td'));
+  return cells.length >= 2 && (cells[1].textContent || '').trim() === {relatorio!r};
 }});
-if (!row) throw new Error('report row missing');
-return Array.from(row.querySelectorAll('[title], [aria-label], a, button, i, mat-icon, span'))
+if (!target) throw new Error('Linha com relatorio {relatorio} nao encontrada');
+return Array.from(target.querySelectorAll('[title], [aria-label], a, button, i, mat-icon, span'))
   .find(el => {{
     const title = (el.getAttribute && (el.getAttribute('title') || el.getAttribute('aria-label') || '')) || '';
     return title.toLowerCase().includes('imprim');
@@ -454,6 +455,25 @@ return Array.from(row.querySelectorAll('[title], [aria-label], a, button, i, mat
             timeout_seconds=15,
         )
         self.sleep(2.5)
+
+    def _validate_report_title(self, *, relatorio: str) -> None:
+        result = self._run_script(
+            f"""
+const rows = Array.from(document.querySelectorAll('table tr')).filter(tr => tr.querySelector('td'));
+for (const tr of rows) {{
+  const cells = Array.from(tr.querySelectorAll('td'));
+  if (cells.length >= 2 && (cells[1].textContent || '').trim() === {relatorio!r}) {{
+    return 'found';
+  }}
+}}
+const titulos = rows.map(tr => {{
+  const cells = Array.from(tr.querySelectorAll('td'));
+  return cells.length >= 2 ? (cells[1].textContent || '').trim() : '';
+}}).filter(Boolean);
+throw new Error('Titulo esperado: {relatorio}. Encontrados: ' + titulos.join(', '));
+""",
+            timeout_seconds=15,
+        )
 
     def _run_script(self, body: str, *, timeout_seconds: int) -> str:
         marker = f"RSAFLOW{uuid.uuid4().hex[:8]}"

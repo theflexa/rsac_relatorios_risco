@@ -51,6 +51,8 @@ class FakeFlow:
 
     def executar_fluxo_exportacao(self, *, competencia, cooperativa, download_dir):
         self.calls.append((competencia, cooperativa, download_dir))
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        self.output_path.touch()
         return self.output_path
 
 
@@ -92,7 +94,7 @@ def test_manual_runner_executes_sisbr_attach_and_rsa_flow(tmp_path: Path):
         "Abrindo Sisbr, garantindo login e acessando modulo RSA",
         "Conectando a janela do navegador aberta pelo Sisbr",
         "Executando jornada RSA completa",
-        f"Arquivo gerado em {expected}",
+        f"Arquivo salvo e confirmado em {expected}",
     ]
 
 

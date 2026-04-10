@@ -167,7 +167,7 @@ class WindowsSaveAsFlow:
             try:
                 button = dialog.child_window(**selector)
                 button.wait("visible enabled ready", timeout=1)
-                self._press(button)
+                self._press_and_verify(button, dialog)
                 self.logger(f"[save_as] Clique no botao: {title} via {selector}")
                 return
             except Exception:
@@ -186,7 +186,7 @@ class WindowsSaveAsFlow:
             if self._normalize_caption(caption) != normalized_title:
                 continue
             try:
-                self._press(button)
+                self._press_and_verify(button, dialog)
                 self.logger(f"[save_as] Clique no botao: {title} via enumeracao ({caption!r})")
                 return
             except Exception:
@@ -205,22 +205,52 @@ class WindowsSaveAsFlow:
             error_message="Botao 'Sim' nao foi encontrado na confirmacao de sobrescrita.",
         )
 
-    @staticmethod
-    def _press(control) -> None:
-        for method_name in ("invoke", "click", "click_input"):
+    def _press_and_verify(self, control, dialog) -> None:
+        """Press a button and verify the dialog actually closed."""
+        for method_name in ("click_input", "invoke", "click"):
             method = getattr(control, method_name, None)
             if method is None:
                 continue
             try:
                 method()
-                return
             except Exception:
                 continue
+            self.sleep(0.5)
+            if not self._dialog_still_visible(dialog):
+                return
+            self.logger(f"[save_as] {method_name} nao fechou o dialogo, tentando proximo metodo")
+
         iface = getattr(control, "iface_invoke", None)
         if iface is not None:
-            iface.Invoke()
-            return
+            try:
+                iface.Invoke()
+                self.sleep(0.5)
+                if not self._dialog_still_visible(dialog):
+                    return
+            except Exception:
+                pass
+
+        # Last resort: press Enter via pyautogui
+        try:
+            import pyautogui
+            dialog.set_focus()
+            self.sleep(0.3)
+            pyautogui.press("enter")
+            self.sleep(0.5)
+            if not self._dialog_still_visible(dialog):
+                self.logger("[save_as] Botao acionado via Enter (pyautogui)")
+                return
+        except Exception:
+            pass
+
         raise WindowsSaveAsControlError("Controle localizado, mas nao respondeu a invoke/click.")
+
+    @staticmethod
+    def _dialog_still_visible(dialog) -> bool:
+        try:
+            return dialog.is_visible()
+        except Exception:
+            return False
 
     @staticmethod
     def _default_desktop_factory(*, backend: str):

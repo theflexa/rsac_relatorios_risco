@@ -35,6 +35,13 @@ from utils.project_config import load_project_config
 from rsac_relatorios_risco.config.workbook_loader import load_config_workbook
 
 
+def _unwrap(value):
+    """Extrai valor real de variavel Jarbis que pode vir como {"value": "...", "type": "String"}."""
+    if isinstance(value, dict) and "value" in value:
+        return _unwrap(value["value"])
+    return value
+
+
 def task_dispatcher(task: ExternalTask) -> TaskResult:
     logger.info("Iniciando Dispatcher - Task ID: {}", task.task_id)
 
@@ -46,8 +53,8 @@ def task_dispatcher(task: ExternalTask) -> TaskResult:
             )
 
         # Parâmetros da competência
-        mes = task.get_variable("mes") or os.getenv("RSAC_MES", "")
-        ano = task.get_variable("ano") or os.getenv("RSAC_ANO", "")
+        mes = _unwrap(task.get_variable("mes")) or os.getenv("RSAC_MES", "")
+        ano = _unwrap(task.get_variable("ano")) or os.getenv("RSAC_ANO", "")
         if not mes or not ano:
             return task.failure(
                 error_message="Variáveis obrigatórias ausentes: mes e ano",
@@ -55,7 +62,7 @@ def task_dispatcher(task: ExternalTask) -> TaskResult:
             )
 
         config_path_str = (
-            task.get_variable("config_path")
+            _unwrap(task.get_variable("config_path"))
             or os.getenv("RSAC_CONFIG_PATH", "")
             or str(Path(__file__).resolve().parent.parent / "Config.xlsx")
         )

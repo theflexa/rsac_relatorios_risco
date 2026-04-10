@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +34,12 @@ class ManualTestSettings:
     skip_sisbr: bool
     sisbr_exe: str | None
     lib_sisbr_path: Path
+    # Etapas pos-download
+    skip_consolidado: bool
+    skip_sharepoint: bool
+    skip_email: bool
+    template_path: Path
+    consolidado_dir: Path
 
 
 class _Logger:
@@ -49,13 +56,20 @@ class _Logger:
 # ============================================================
 load_dotenv()
 
-COMPETENCIA = "03/2026"
+COMPETENCIA = "04/2026"
 COOPERATIVA = "3042"
 DOWNLOAD_DIR = PROJECT_ROOT / "temp" / "manual_rsa"
 BROWSER = "chrome"
 SKIP_SISBR = False
 SISBR_EXE = None
 LIB_SISBR_PATH = default_lib_sisbr_path()
+
+# Etapas pos-download (14-18)
+SKIP_CONSOLIDADO = False
+SKIP_SHAREPOINT = True       # True por padrao — requer credenciais reais
+SKIP_EMAIL = False             # True por padrao — requer credenciais reais
+TEMPLATE_PATH = PROJECT_ROOT / "Models" / "Modelo_PlanilhaPrincipal.xlsx"
+CONSOLIDADO_DIR = PROJECT_ROOT / "temp" / "manual_rsa" / "consolidado"
 
 
 def current_settings() -> ManualTestSettings:
@@ -67,6 +81,11 @@ def current_settings() -> ManualTestSettings:
         skip_sisbr=SKIP_SISBR,
         sisbr_exe=SISBR_EXE,
         lib_sisbr_path=Path(LIB_SISBR_PATH),
+        skip_consolidado=SKIP_CONSOLIDADO,
+        skip_sharepoint=SKIP_SHAREPOINT,
+        skip_email=SKIP_EMAIL,
+        template_path=Path(TEMPLATE_PATH),
+        consolidado_dir=Path(CONSOLIDADO_DIR),
     )
 
 
@@ -90,6 +109,8 @@ def build_runner(settings: ManualTestSettings, logger: _Logger) -> ManualRsaSmok
 
 def run_with_settings(settings: ManualTestSettings, logger=None) -> Path:
     logger = logger or _Logger()
+
+    # --- Etapas 1-13: Sisbr -> portal RSA -> download ---
     logger.info("Iniciando teste manual RSA")
     runner = build_runner(settings, logger)
     output_path = runner.run(
@@ -99,6 +120,92 @@ def run_with_settings(settings: ManualTestSettings, logger=None) -> Path:
         skip_sisbr=settings.skip_sisbr,
     )
     logger.info(f"Teste manual concluido. Arquivo salvo em: {output_path}")
+
+    # --- Etapa 14: Ler relatorio exportado ---
+    from rsac_relatorios_risco.services.report_service import read_report
+
+    logger.info(f"Lendo relatorio exportado: {output_path}")
+    report = read_report(output_path)
+    logger.info(
+        f"Relatorio lido: cooperativa={report.cooperativa} "
+        f"competencia={report.competencia} "
+        f"linhas={len(report.rows)}"
+    )
+
+    # --- Etapas 15-16: Preencher consolidado ---
+    if not settings.skip_consolidado:
+        from rsac_relatorios_risco.services.consolidado_service import apply_report
+        from rsac_relatorios_risco.performer.consolidado_resolver import resolve_monthly_workbook
+
+        file_name = f"RSAC_{settings.cooperativa}_{settings.competencia.replace('/', '')}.xlsx"
+        workbook_path = resolve_monthly_workbook(
+            template_path=settings.template_path,
+            output_dir=settings.consolidado_dir,
+            competencia=settings.competencia,
+            file_name=file_name,
+        )
+        logger.info(f"Consolidado resolvido: {workbook_path}")
+
+        apply_report(workbook_path, report)
+        logger.info(f"Aba da cooperativa {report.cooperativa} preenchida no consolidado")
+    else:
+        logger.info("Consolidado pulado (SKIP_CONSOLIDADO=True)")
+
+    # --- Etapa 17: Upload SharePoint ---
+    if not settings.skip_sharepoint:
+        from utils.sharepoint import upload_file as sharepoint_upload, build_rsac_folder_path
+
+        sp_site_url = os.getenv("SHAREPOINT_SITE_URL", "")
+        sp_biblioteca = os.getenv("SHAREPOINT_BIBLIOTECA", "Documentos Compartilhados")
+        sp_base_folder = os.getenv("SHAREPOINT_FOLDER_PATH", "")
+        if not sp_site_url:
+            logger.info("SHAREPOINT_SITE_URL nao configurado, pulando upload")
+        else:
+            full_folder = build_rsac_folder_path(
+                sp_base_folder,
+                competencia=settings.competencia,
+                cooperativa=settings.cooperativa,
+            )
+            logger.info(f"Enviando para SharePoint: {sp_biblioteca}/{full_folder}")
+            web_url = sharepoint_upload(
+                workbook_path,
+                site_url=sp_site_url,
+                folder_path=full_folder,
+                tenant_id=os.getenv("SHAREPOINT_TENANT_ID", ""),
+                client_id=os.getenv("SHAREPOINT_CLIENT_ID", ""),
+                client_secret=os.getenv("SHAREPOINT_CLIENT_SECRET", ""),
+                biblioteca=sp_biblioteca,
+            )
+            logger.info(f"Upload SharePoint concluido: {web_url}")
+    else:
+        logger.info("SharePoint pulado (SKIP_SHAREPOINT=True)")
+
+    # --- Etapa 18: Envio de e-mail ---
+    if not settings.skip_email:
+        from rsac_relatorios_risco.services.email_service import send_summary
+
+        mail_from = os.getenv("MAIL_FROM") or os.getenv("FROM_EMAIL", "")
+        if not mail_from:
+            logger.info("MAIL_FROM/FROM_EMAIL nao configurado, pulando e-mail")
+        else:
+            summary = {
+                "concluidos": [settings.cooperativa],
+                "erros_sistemicos": [],
+            }
+            logger.info(f"Enviando e-mail de resumo de {mail_from}")
+            send_summary(
+                summary,
+                settings={"MailDestinatarioResultado": "sergio.oliveira@sicoobnovacentral.com.br"},
+                competencia=settings.competencia,
+                mail_from=mail_from,
+                tenant_id=os.getenv("EMAIL_TENANT_ID") or os.getenv("SHAREPOINT_TENANT_ID", ""),
+                client_id=os.getenv("EMAIL_CLIENT_ID") or os.getenv("SHAREPOINT_CLIENT_ID", ""),
+                client_secret=os.getenv("EMAIL_CLIENT_SECRET") or os.getenv("SHAREPOINT_CLIENT_SECRET", ""),
+            )
+            logger.info("E-mail enviado com sucesso")
+    else:
+        logger.info("E-mail pulado (SKIP_EMAIL=True)")
+
     return output_path
 
 

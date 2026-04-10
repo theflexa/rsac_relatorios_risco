@@ -1,7 +1,7 @@
-from rsac_relatorios_risco.integrations.mail_client import build_mail_message
 from rsac_relatorios_risco.services.email_service import (
     build_summary_body,
     build_summary_subject,
+    build_summary_html,
 )
 
 
@@ -21,15 +21,18 @@ def test_build_summary_subject_and_body_include_concluded_pending_and_errors():
     assert "Erros: Falha ao subir SharePoint da 4444" in body
 
 
-def test_build_mail_message_returns_transport_payload():
-    message = build_mail_message(
-        to="time@sicoob.com",
-        subject="RSAC 03/2026 - parcial",
-        body="Resumo",
+def test_build_summary_html_includes_table_with_results():
+    html = build_summary_html(
+        concluidos=["3042", "4001"],
+        erros=["5555"],
+        competencia="04/2026",
     )
 
-    assert message == {
-        "to": "time@sicoob.com",
-        "subject": "RSAC 03/2026 - parcial",
-        "body": "Resumo",
-    }
+    assert "3042" in html
+    assert "4001" in html
+    assert "5555" in html
+    assert "Sucesso" in html
+    assert "Erro" in html
+    assert "04/2026" in html
+    assert "SICOOB NOVA CENTRAL" in html
+    assert "Resultado do Processamento" in html

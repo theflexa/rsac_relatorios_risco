@@ -53,20 +53,20 @@ def main():
     )
 
     topic_dispatcher = Topic(
-        name="Dispatcher",
+        name="RSAC_RELATORIOS_RISCO_DISPATCHER",
         lock_duration=120000,       # 2 min (ler Config.xlsx e criar itens)
         retries=3,
         retry_timeout=5000,
     )
 
     topic_performer = Topic(
-        name="Performer",
-        lock_duration=900000,       # 15 min (Sisbr + RSA + download)
+        name="RSAC_RELATORIOS_RISCO_PERFORMER",
+        lock_duration=900000,       # 15 min (Sisbr + RSA + download + consolidado + SharePoint)
         retries=3,
         retry_timeout=10000,
     )
 
-    logger.info("Inscrevendo worker nos tópicos Dispatcher e Performer...")
+    logger.info("Inscrevendo worker nos tópicos RSAC_RELATORIOS_RISCO_DISPATCHER e RSAC_RELATORIOS_RISCO_PERFORMER...")
     worker.subscribe(topic_dispatcher, task_dispatcher)
     worker.subscribe(topic_performer, task_performer)
 
