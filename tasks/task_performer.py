@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from utils.database import get_item_by_id, has_database_config, update_item, update_item_merge
 from utils.rpa_actions import kill_all_processes
-from utils.sharepoint import upload_file as sharepoint_upload, build_rsac_folder_path
+from utils.sharepoint import upload_file as sharepoint_upload, build_rsac_folder_path, build_rsac_month_folder_path
 
 from rsac_relatorios_risco.manual.rsa_smoke_runner import (
     BrowserWindowSession,
@@ -180,7 +180,7 @@ def task_performer(task: ExternalTask) -> TaskResult:
         )
 
         # 7. Preencher consolidado (etapas 15-16)
-        file_name = nome_arquivo or f"RSAC_{cooperativa}_{competencia.replace('/', '')}.xlsx"
+        file_name = nome_arquivo or f"RSAC_{competencia.replace('/', '')}.xlsx"
         workbook_path = resolve_monthly_workbook(
             template_path=TEMPLATE_PATH,
             output_dir=CONSOLIDADO_DIR,
@@ -192,31 +192,52 @@ def task_performer(task: ExternalTask) -> TaskResult:
         apply_report(workbook_path, report)
         logger.info("Aba da cooperativa {} preenchida no consolidado", cooperativa)
 
-        # 8. Upload SharePoint (etapa 17)
+        # 8. Upload SharePoint
         sharepoint_published = False
         sharepoint_web_url = ""
         sp_site_url = os.getenv("SHAREPOINT_SITE_URL", "")
         sp_biblioteca = os.getenv("SHAREPOINT_BIBLIOTECA", "Documentos Compartilhados")
         sp_base_folder = sharepoint_folder or os.getenv("SHAREPOINT_FOLDER_PATH", "")
         if sp_site_url and sp_base_folder:
-            full_folder = build_rsac_folder_path(
+            sp_creds = _sharepoint_credentials()
+
+            # 8a. Upload insumo (pasta da cooperativa)
+            insumo_folder = build_rsac_folder_path(
                 sp_base_folder,
                 competencia=competencia,
                 cooperativa=cooperativa,
             )
-            logger.info("Enviando consolidado para SharePoint: {}/{}", sp_biblioteca, full_folder)
+            logger.info("Enviando insumo para SharePoint: {}/{}", sp_biblioteca, insumo_folder)
+            try:
+                sharepoint_upload(
+                    output_path,
+                    site_url=sp_site_url,
+                    folder_path=insumo_folder,
+                    biblioteca=sp_biblioteca,
+                    **sp_creds,
+                )
+                logger.info("Upload insumo concluído")
+            except Exception as exc:
+                logger.error("Falha no upload do insumo: {}", exc)
+
+            # 8b. Upload consolidado (pasta do mês)
+            consolidado_folder = build_rsac_month_folder_path(
+                sp_base_folder,
+                competencia=competencia,
+            )
+            logger.info("Enviando consolidado para SharePoint: {}/{}", sp_biblioteca, consolidado_folder)
             try:
                 sharepoint_web_url = sharepoint_upload(
                     workbook_path,
                     site_url=sp_site_url,
-                    folder_path=full_folder,
+                    folder_path=consolidado_folder,
                     biblioteca=sp_biblioteca,
-                    **_sharepoint_credentials(),
+                    **sp_creds,
                 )
                 sharepoint_published = True
-                logger.info("Upload SharePoint concluído: {}", sharepoint_web_url)
+                logger.info("Upload consolidado concluído: {}", sharepoint_web_url)
             except Exception as exc:
-                logger.error("Falha no upload SharePoint: {}", exc)
+                logger.error("Falha no upload do consolidado: {}", exc)
 
         # 9. Sucesso
         update_item_merge(
@@ -299,8 +320,9 @@ def _executar_fluxo_rsa(
     download_dir.mkdir(parents=True, exist_ok=True)
 
     # Verifica se já existe
-    competencia_clean = competencia.replace("/", "")
-    expected_path = download_dir / f"relatorio_{cooperativa}_{competencia_clean}.xlsx"
+    from utils.project_config import build_report_filename
+    subfolder = competencia.replace("/", "-")
+    expected_path = download_dir / subfolder / cooperativa / build_report_filename(cooperativa, competencia)
     if expected_path.exists():
         logger.info("Relatório já existe: {}", expected_path)
         return expected_path

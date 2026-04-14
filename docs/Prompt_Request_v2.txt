@@ -1,6 +1,6 @@
 Nome da automacao: RSAC - Exportacao Relatorio de Risco
 Desenvolvedor: Guilherme Flexa
-Status: Desenvolvimento (proximo passo: validacao em producao)
+Status: Desenvolvimento
 
 ================================================================================
 CONTEXTO

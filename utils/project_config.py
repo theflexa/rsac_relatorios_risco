@@ -34,3 +34,13 @@ def load_project_config(config_path=None) -> Dict[str, str]:
         if value:
             config[key] = value
     return config
+
+
+_DEFAULT_REPORT_PATTERN = "relatorio_{cooperativa}_{competencia}.xlsx"
+
+
+def build_report_filename(cooperativa: str, competencia: str) -> str:
+    """Monta nome do arquivo de relatório usando o padrão do .env."""
+    pattern = os.getenv("REPORT_FILENAME_PATTERN", _DEFAULT_REPORT_PATTERN)
+    competencia_clean = competencia.replace("/", "")
+    return pattern.format(cooperativa=cooperativa, competencia=competencia_clean)

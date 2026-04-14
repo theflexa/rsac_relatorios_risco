@@ -66,7 +66,7 @@ LIB_SISBR_PATH = default_lib_sisbr_path()
 
 # Etapas pos-download (14-18)
 SKIP_CONSOLIDADO = False
-SKIP_SHAREPOINT = True       # True por padrao — requer credenciais reais
+SKIP_SHAREPOINT = False       # True por padrao — requer credenciais reais
 SKIP_EMAIL = False             # True por padrao — requer credenciais reais
 TEMPLATE_PATH = PROJECT_ROOT / "Models" / "Modelo_PlanilhaPrincipal.xlsx"
 CONSOLIDADO_DIR = PROJECT_ROOT / "temp" / "manual_rsa" / "consolidado"
@@ -137,7 +137,7 @@ def run_with_settings(settings: ManualTestSettings, logger=None) -> Path:
         from rsac_relatorios_risco.services.consolidado_service import apply_report
         from rsac_relatorios_risco.performer.consolidado_resolver import resolve_monthly_workbook
 
-        file_name = f"RSAC_{settings.cooperativa}_{settings.competencia.replace('/', '')}.xlsx"
+        file_name = f"RSAC_{settings.competencia.replace('/', '')}.xlsx"
         workbook_path = resolve_monthly_workbook(
             template_path=settings.template_path,
             output_dir=settings.consolidado_dir,
@@ -153,30 +153,49 @@ def run_with_settings(settings: ManualTestSettings, logger=None) -> Path:
 
     # --- Etapa 17: Upload SharePoint ---
     if not settings.skip_sharepoint:
-        from utils.sharepoint import upload_file as sharepoint_upload, build_rsac_folder_path
+        from utils.sharepoint import upload_file as sharepoint_upload, build_rsac_folder_path, build_rsac_month_folder_path
 
         sp_site_url = os.getenv("SHAREPOINT_SITE_URL", "")
         sp_biblioteca = os.getenv("SHAREPOINT_BIBLIOTECA", "Documentos Compartilhados")
         sp_base_folder = os.getenv("SHAREPOINT_FOLDER_PATH", "")
+        sp_creds = {
+            "tenant_id": os.getenv("SHAREPOINT_TENANT_ID", ""),
+            "client_id": os.getenv("SHAREPOINT_CLIENT_ID", ""),
+            "client_secret": os.getenv("SHAREPOINT_CLIENT_SECRET", ""),
+        }
         if not sp_site_url:
             logger.info("SHAREPOINT_SITE_URL nao configurado, pulando upload")
         else:
-            full_folder = build_rsac_folder_path(
+            # 17a. Upload insumo (pasta da cooperativa)
+            insumo_folder = build_rsac_folder_path(
                 sp_base_folder,
                 competencia=settings.competencia,
                 cooperativa=settings.cooperativa,
             )
-            logger.info(f"Enviando para SharePoint: {sp_biblioteca}/{full_folder}")
+            logger.info(f"Enviando insumo para SharePoint: {sp_biblioteca}/{insumo_folder}")
+            sharepoint_upload(
+                output_path,
+                site_url=sp_site_url,
+                folder_path=insumo_folder,
+                biblioteca=sp_biblioteca,
+                **sp_creds,
+            )
+            logger.info("Upload insumo concluido")
+
+            # 17b. Upload consolidado (pasta do mês)
+            consolidado_folder = build_rsac_month_folder_path(
+                sp_base_folder,
+                competencia=settings.competencia,
+            )
+            logger.info(f"Enviando consolidado para SharePoint: {sp_biblioteca}/{consolidado_folder}")
             web_url = sharepoint_upload(
                 workbook_path,
                 site_url=sp_site_url,
-                folder_path=full_folder,
-                tenant_id=os.getenv("SHAREPOINT_TENANT_ID", ""),
-                client_id=os.getenv("SHAREPOINT_CLIENT_ID", ""),
-                client_secret=os.getenv("SHAREPOINT_CLIENT_SECRET", ""),
+                folder_path=consolidado_folder,
                 biblioteca=sp_biblioteca,
+                **sp_creds,
             )
-            logger.info(f"Upload SharePoint concluido: {web_url}")
+            logger.info(f"Upload consolidado concluido: {web_url}")
     else:
         logger.info("SharePoint pulado (SKIP_SHAREPOINT=True)")
 

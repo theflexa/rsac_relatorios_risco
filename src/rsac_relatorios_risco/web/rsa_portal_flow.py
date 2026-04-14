@@ -6,6 +6,7 @@ from utils import rpa_actions
 from rsac_relatorios_risco.web import selectors_config
 from rsac_relatorios_risco.web.rsa_portal_stub import RsaPortalNotReadyError
 from rsac_relatorios_risco.windows.save_as_flow import WindowsSaveAsFlow
+from utils.project_config import build_report_filename
 
 
 class RsaPortalPendingSelectorError(RsaPortalNotReadyError):
@@ -313,8 +314,10 @@ class RsaPortalFlow:
 
     def _build_download_path(self, download_dir: Path) -> Path:
         cooperativa = self._current_cooperativa or "coop"
-        competencia = (self._current_competencia or "000000").replace("/", "")
-        return Path(download_dir) / f"relatorio_{cooperativa}_{competencia}.xlsx"
+        competencia = self._current_competencia or "00/0000"
+        subfolder = competencia.replace("/", "-")
+        filename = build_report_filename(cooperativa, competencia)
+        return Path(download_dir) / subfolder / cooperativa / filename
 
     def _ensure_browser_context(self) -> None:
         handles = list(getattr(self.driver, "window_handles", []) or [])

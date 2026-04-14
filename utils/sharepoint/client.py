@@ -81,25 +81,32 @@ def upload_file(
     return _upload(site_id, drive_id, folder_path, file_path, token)
 
 
+def build_rsac_month_folder_path(
+    base_folder: str,
+    *,
+    competencia: str,
+) -> str:
+    """Monta folder path do mes (sem cooperativa).
+
+    Formato: ``{base_folder}/{yyyy} - Ações RSAC/{MM-yyyy}``
+    """
+    mes, ano = competencia.split("/")
+    suffix = f"{ano} - Ações RSAC/{mes}-{ano}"
+    return f"{base_folder.rstrip('/')}/{suffix}"
+
+
 def build_rsac_folder_path(
     base_folder: str,
     *,
     competencia: str,
     cooperativa: str,
 ) -> str:
-    """Monta folder path com subdiretorios dinamicos RSAC.
+    """Monta folder path da cooperativa (subpasta do mes).
 
     Formato: ``{base_folder}/{yyyy} - Ações RSAC/{MM-yyyy}/{cooperativa}``
-
-    Args:
-        base_folder: Folder path base dentro da biblioteca
-            (ex: ``DESENVOLVIMENTO/DESENVOLVEDORES/.../Saida``).
-        competencia: No formato ``MM/AAAA`` (ex: ``03/2026``).
-        cooperativa: Codigo da cooperativa (ex: ``3042``).
     """
-    mes, ano = competencia.split("/")
-    suffix = f"{ano} - Ações RSAC/{mes}-{ano}/{cooperativa}"
-    return f"{base_folder.rstrip('/')}/{suffix}"
+    month_path = build_rsac_month_folder_path(base_folder, competencia=competencia)
+    return f"{month_path}/{cooperativa}"
 
 
 # ---------------------------------------------------------------------------

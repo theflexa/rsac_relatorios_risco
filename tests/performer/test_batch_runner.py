@@ -29,6 +29,17 @@ def test_publish_one_updates_workbook_and_uploads_incrementally(tmp_path: Path):
         competencia="03/2026",
         headers=["Central", "Singular"],
         rows=[["1004", "3333 - SICOOB SECOVICRED"]],
+        data_emissao="10/04/2026 11:05",
+        criterios="DATABASE: 032026, CENTRAL: 1004, SINGULAR: 3333",
+        all_rows=[
+            ["SISBR - RISCOS SOCIAL, AMBIENTAL E CLIMATICO"],
+            ["RELATORIO DE RISCO POR COOPERATIVA"],
+            ["1004 - SICOOB NOVA CENTRAL"],
+            ["DATA DE EMISSAO", "10/04/2026 11:05"],
+            ["CRITERIOS", "DATABASE: 032026, CENTRAL: 1004, SINGULAR: 3333"],
+            ["Central", "Singular"],
+            ["1004", "3333 - SICOOB SECOVICRED"],
+        ],
     )
     consolidado_service = FakeConsolidadoService()
     sharepoint_client = FakeSharepointClient()

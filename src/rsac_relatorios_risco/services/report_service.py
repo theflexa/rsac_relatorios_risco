@@ -16,6 +16,9 @@ class ReportData:
     competencia: str
     headers: list[str]
     rows: list[list[str]]
+    data_emissao: str
+    criterios: str
+    all_rows: list[list]
 
 
 def read_report(path: Path) -> ReportData:
@@ -25,11 +28,17 @@ def read_report(path: Path) -> ReportData:
     rows = _read_rows(sheet, len(headers))
     cooperativa = _extract_cooperativa(rows, sheet["B5"].value)
     competencia = _extract_competencia(rows)
+    data_emissao = str(sheet["B4"].value or "")
+    criterios = str(sheet["B5"].value or "")
+    all_rows = _read_all_rows(sheet)
     return ReportData(
         cooperativa=cooperativa,
         competencia=competencia,
         headers=headers,
         rows=rows,
+        data_emissao=data_emissao,
+        criterios=criterios,
+        all_rows=all_rows,
     )
 
 
@@ -58,6 +67,18 @@ def _read_rows(sheet, column_count: int) -> list[list[str]]:
         rows.append(["" if value is None else str(value) for value in values])
         row_index += 1
     return rows
+
+
+def _read_all_rows(sheet) -> list[list]:
+    """Le todas as linhas da aba (row 1 ate a ultima com dados), preservando valores originais."""
+    max_col = sheet.max_column or 1
+    result: list[list] = []
+    for row_index in range(1, sheet.max_row + 1):
+        values = [sheet.cell(row=row_index, column=c).value for c in range(1, max_col + 1)]
+        if all(v is None for v in values):
+            break
+        result.append(values)
+    return result
 
 
 def _extract_cooperativa(rows: list[list[str]], criteria_value: object | None) -> str:

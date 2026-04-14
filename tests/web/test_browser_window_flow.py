@@ -90,8 +90,8 @@ def test_alert_status_saves_screenshot_in_output_dir(tmp_path: Path):
         download_dir=tmp_path,
     )
 
-    assert result == tmp_path / "alerta_1004_032026.png"
-    assert shots == [str(tmp_path / "alerta_1004_032026.png")]
+    assert result == tmp_path / "03-2026" / "1004" / "alerta_1004_032026.png"
+    assert shots == [str(tmp_path / "03-2026" / "1004" / "alerta_1004_032026.png")]
     assert save_as.calls == []
     assert window.focus_calls == 1
 
@@ -120,8 +120,8 @@ def test_success_status_keeps_save_as_flow(tmp_path: Path):
         download_dir=tmp_path,
     )
 
-    assert result == tmp_path / "relatorio_1004_032026.xlsx"
-    assert save_as.calls == [tmp_path / "relatorio_1004_032026.xlsx"]
+    assert result == tmp_path / "03-2026" / "1004" / "relatorio_1004_032026.xlsx"
+    assert save_as.calls == [tmp_path / "03-2026" / "1004" / "relatorio_1004_032026.xlsx"]
     assert clicked == [{"relatorio": "RELATORIO_RISCO_COOPERATIVA", "status": "Processado com sucesso"}]
 
 

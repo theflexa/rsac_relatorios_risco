@@ -288,8 +288,10 @@ class ManualRsaSmokeRunner:
 
     @staticmethod
     def _expected_download_path(download_dir: Path, cooperativa: str, competencia: str) -> Path:
-        competencia_clean = competencia.replace("/", "")
-        return download_dir / f"relatorio_{cooperativa}_{competencia_clean}.xlsx"
+        from utils.project_config import build_report_filename
+        subfolder = competencia.replace("/", "-")
+        filename = build_report_filename(cooperativa, competencia)
+        return download_dir / subfolder / cooperativa / filename
 
 
 def default_lib_sisbr_path() -> Path:

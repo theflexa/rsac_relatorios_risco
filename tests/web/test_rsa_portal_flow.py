@@ -299,8 +299,8 @@ def test_flow_executes_real_rsa_sequence_when_selectors_are_ready(tmp_path: Path
         download_dir=tmp_path,
     )
 
-    assert destino == tmp_path / "relatorio_3333_032026.xlsx"
-    assert save_as_flow.calls == [tmp_path / "relatorio_3333_032026.xlsx"]
+    assert destino == tmp_path / "03-2026" / "3333" / "relatorio_3333_032026.xlsx"
+    assert save_as_flow.calls == [tmp_path / "03-2026" / "3333" / "relatorio_3333_032026.xlsx"]
     assert actions.calls[0] == ("wait_element", "//div[@id='home-rsa']", "xpath", {"timeout": 10})
     assert ("click", "//button[@id='menu-relatorios']", "xpath", {}) in actions.calls
     assert (

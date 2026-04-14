@@ -141,6 +141,7 @@ def test_step_by_step_performer_runs_linear_flow_with_clear_logs(tmp_path: Path)
     assert runner.rsa_flow.bound_windows == ["janela-rsa"]
     assert logger.messages == [
         "Iniciando execução do Performer",
+        "Encerrando aplicações antes de iniciar",
         "Coletando itens elegíveis",
         "Localizando ou criando consolidado mensal",
         "Coletando item 1 - 3333_RSAC_RISCO_032026",
@@ -155,4 +156,5 @@ def test_step_by_step_performer_runs_linear_flow_with_clear_logs(tmp_path: Path)
         "Marcando item 1 como sucesso",
         "Executando limpeza de temporários antigos",
         "Enviando e-mail final",
+        "Encerrando aplicações ao finalizar",
     ]

@@ -11,6 +11,7 @@ import pyautogui
 import pyperclip
 
 from rsac_relatorios_risco.windows.save_as_flow import WindowsSaveAsFlow
+from utils.project_config import build_report_filename
 
 
 class BrowserWindowFlowError(RuntimeError):
@@ -92,6 +93,10 @@ class BrowserWindowPortalFlow:
 
     def _focus_portal_tab(self) -> None:
         self.browser_window.set_focus()
+        try:
+            self.browser_window.maximize()
+        except Exception:
+            pass
         for _ in range(20):
             current_url = self._current_url()
             if self._is_rsa_url(current_url):
@@ -563,13 +568,21 @@ return describe(target);
     def _build_alert_path(self, download_dir: Path, *, status: str) -> Path:
         del status
         cooperativa = self._current_cooperativa or "coop"
-        competencia = (self._current_competencia or "000000").replace("/", "")
-        return Path(download_dir) / f"alerta_{cooperativa}_{competencia}.png"
+        competencia_clean = (self._current_competencia or "000000").replace("/", "")
+        subfolder = self._competencia_folder(self._current_competencia)
+        return Path(download_dir) / subfolder / cooperativa / f"alerta_{cooperativa}_{competencia_clean}.png"
 
     def _build_download_path(self, download_dir: Path) -> Path:
         cooperativa = self._current_cooperativa or "coop"
-        competencia = (self._current_competencia or "000000").replace("/", "")
-        return Path(download_dir) / f"relatorio_{cooperativa}_{competencia}.xlsx"
+        competencia = self._current_competencia or "00/0000"
+        subfolder = self._competencia_folder(competencia)
+        filename = build_report_filename(cooperativa, competencia)
+        return Path(download_dir) / subfolder / cooperativa / filename
+
+    @staticmethod
+    def _competencia_folder(competencia: str | None) -> str:
+        """Converte '04/2026' em '04-2026'."""
+        return (competencia or "00-0000").replace("/", "-")
 
     def _activate_address_bar(self) -> None:
         self.browser_window.set_focus()
