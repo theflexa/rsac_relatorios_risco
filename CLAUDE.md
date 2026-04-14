@@ -24,6 +24,23 @@ Performer (para cada cooperativa):
 
 O portal RSA exige sessao autenticada no Sisbr com certificado digital. Selenium cria uma sandbox limpa sem cookies/sessao. A automacao usa `pyautogui` + `pywinauto` para interagir com o Chrome ja aberto pelo Sisbr, injetando JavaScript via barra de endereco para localizar elementos e obter coordenadas de tela.
 
+## lib_sisbr_desktop
+
+Biblioteca vendored (copiada para dentro do repo) que automatiza o Sisbr 2.0 Desktop (aplicacao Adobe AIR). Usada para:
+- Abrir o executavel do Sisbr (`abrir_sisbr`)
+- Fazer login automatico com usuario/senha (`login`)
+- Acessar modulos por nome (`acessar_modulo` — ex: "RISCOS SOCIAL, AMBIENTAL E CLIMATICO")
+- Detectar estado da janela (`is_logado`, `is_updating`, `has_connectivity_error`, `has_restart_prompt`)
+
+A lib usa OCR (imagens de referencia em `lib_sisbr_desktop/src/lib_sisbr_desktop/ocr/`) e `pywinauto` para localizar campos e botoes na interface desktop. Nao e um pacote instalavel — e importada diretamente pelo path:
+
+```python
+from lib_sisbr_desktop.src.lib_sisbr_desktop.core.login import login
+from lib_sisbr_desktop.src.lib_sisbr_desktop.core.acessar_modulo import acessar_modulo
+```
+
+O wrapper do projeto fica em `src/rsac_relatorios_risco/sisbr/desktop_session.py` que encapsula as chamadas da lib em uma classe `LibSisbrDesktopSession` com retry, tratamento de erros de conectividade e reinicializacao do Sisbr.
+
 ## Estrutura de pastas
 
 ```
