@@ -1,0 +1,221 @@
+Nome da automacao: RSAC - Exportacao Relatorio de Risco
+Desenvolvedor: Guilherme Flexa
+Status: Desenvolvimento (proximo passo: validacao em producao)
+
+================================================================================
+CONTEXTO
+================================================================================
+
+Este projeto ja esta construido e funcional. Este prompt serve como referencia
+para entender o modelo, replicar em novos projetos ou dar manutencao.
+
+Guia de referencia do projeto: CLAUDE.md (na raiz do repositorio)
+Guia de producao Jarbis: C:\Projetos\Python\GUIA_PROJETOS\guia-prod.md
+Manual Jarbis: C:\Projetos\Python\GUIA_PROJETOS\MANUAL_JARBIS 1.md
+
+================================================================================
+O QUE A AUTOMACAO FAZ
+================================================================================
+
+Exporta relatorios de Riscos Social, Ambiental e Climatico (RSAC) do portal
+Sisbr 3.0 para cada cooperativa configurada, preenche uma planilha consolidada
+mensal e publica tudo no SharePoint. Ao final, envia e-mail de resumo.
+
+================================================================================
+ARQUITETURA
+================================================================================
+
+Padrao: Dispatcher/Performer (orquestrado pelo Jarbis/Camunda)
+
+Dispatcher (task_dispatcher.py):
+  1. Le Config.xlsx (aba Items — 1 linha por cooperativa)
+  2. Cria 1 item no banco (PostgREST) por cooperativa
+  3. Verifica duplicatas antes de inserir
+
+Performer (task_performer.py):
+  Para cada cooperativa:
+  1. Abre Sisbr 2.0 Desktop (lib_sisbr_desktop — login automatico)
+  2. Acessa modulo "RISCOS SOCIAL, AMBIENTAL E CLIMATICO"
+     -> Sisbr abre Chrome com sessao autenticada (certificado digital)
+  3. Navega no portal web RSA (https://portal.sisbr.coop.br/rsa/risco):
+     - Clica em "Relatorios" -> "Relatorios de Riscos Social Ambiental e Climatico"
+     - Preenche: Tipo Relatorio (Relatorio por Cooperativa), Singular ({cooperativa}), Mes/Ano
+     - Clica "Exportar" -> seleciona formato XLSX -> "Gerar Relatorio"
+     - Aguarda "Relatorios Disponiveis", valida situacao, clica "Imprimir"
+  4. Salva arquivo via dialogo "Salvar como" do Windows (pywinauto)
+  5. Le o relatorio exportado (insumo)
+  6. Copia TODO o conteudo do insumo para a aba da cooperativa no consolidado mensal
+  7. Upload do insumo no SharePoint (pasta da cooperativa)
+  8. Upload do consolidado atualizado no SharePoint (pasta do mes)
+  9. Ao final de TODOS os itens, envia e-mail de resumo com template Sicoob
+
+================================================================================
+POR QUE NAO USA SELENIUM
+================================================================================
+
+O portal RSA exige sessao autenticada no Sisbr com certificado digital.
+Selenium cria sandbox limpa (sem cookies/sessao). A automacao usa pyautogui +
+pywinauto para interagir com o Chrome ja aberto pelo Sisbr, injetando
+JavaScript via barra de endereco para localizar elementos no DOM e obter
+coordenadas de tela para clicar.
+
+================================================================================
+ESTRUTURA DE PASTAS DO PROJETO
+================================================================================
+
+rsac_relatorios_risco/
+  CLAUDE.md                    <- LEIA PRIMEIRO (guia completo)
+  agent_jarbis.py              <- Worker Jarbis (escuta topics Dispatcher + Performer)
+  rsac_dispatcher.bpmn         <- BPMN do Dispatcher (publicar no Jarbis)
+  rsac_performer.bpmn          <- BPMN do Performer (publicar no Jarbis)
+  config/
+    settings.py                <- Variaveis do .env
+    processes_to_kill.json     <- Chrome, Sisbr (cleanup)
+  tasks/
+    task_dispatcher.py         <- Handler Jarbis: le Config.xlsx, insere itens
+    task_performer.py          <- Handler Jarbis: processa 1 cooperativa
+  src/rsac_relatorios_risco/
+    config/                    <- Leitura Config.xlsx (models, loader, placeholder)
+    dispatcher/                <- Servico de dispatch
+    performer/                 <- Orquestradores, batch runner, consolidado resolver
+    services/
+      report_service.py        <- Le insumo exportado (headers, rows, all_rows, metadados)
+      consolidado_service.py   <- Copia conteudo do insumo para aba no consolidado
+      email_service.py         <- E-mail de resultado/excecao (usa utils/mail)
+      cleanup_service.py       <- Limpa temp antigos
+    web/
+      browser_window_flow.py   <- Fluxo principal (pyautogui + JS injetado)
+      rsa_portal_flow.py       <- Fluxo alternativo (Selenium — nao usado em prd)
+      selectors_config.py      <- Seletores XPath/CSS/ID do portal RSA
+    windows/
+      save_as_flow.py          <- Dialogo "Salvar como" (pywinauto, com verificacao)
+    sisbr/
+      desktop_session.py       <- Wrapper lib_sisbr_desktop (retry, erro conectividade)
+    manual/
+      rsa_smoke_runner.py      <- Runner para teste manual
+  scripts/
+    teste_manual_rsa.py        <- Teste end-to-end (1-click, flags SKIP_*)
+    teste_email.py             <- Teste isolado e-mail
+    teste_sharepoint_upload.py <- Teste isolado upload
+  utils/                       <- REUTILIZAVEIS entre projetos
+    mail/                      <- send_mail, build_status_email, graph_auth, template HTML Sicoob
+    sharepoint/                <- upload_file, build_rsac_folder_path, build_rsac_month_folder_path
+    database/                  <- PostgREST (ensure_project, insert_item, update_item, etc.)
+    jarbis/                    <- Cliente REST Camunda (start_process_instance)
+    project_config.py          <- load_project_config, build_report_filename (do .env)
+    rpa_actions.py             <- click, type_into, wait_element, kill_process (estilo UiPath)
+  lib_sisbr_desktop/           <- Lib vendored: automacao Sisbr Desktop (OCR + pywinauto)
+  Models/
+    Config.xlsx                <- Settings (destinatarios) + Items (cooperativas)
+    Modelo_PlanilhaPrincipal.xlsx <- Template consolidado (136 abas)
+
+================================================================================
+CONFIGURACAO
+================================================================================
+
+.env (credenciais e constantes — nao vai pro git):
+  - LOGIN_USER, LOGIN_PASSWORD (Sisbr)
+  - SHAREPOINT_TENANT_ID, CLIENT_ID, CLIENT_SECRET
+  - SHAREPOINT_SITE_URL, BIBLIOTECA, FOLDER_PATH
+  - EMAIL_TENANT_ID, CLIENT_ID, CLIENT_SECRET, FROM_EMAIL
+  - PROJECT_NAME="RSAC - Exportacao Relatorio de Risco"
+  - REPORT_FILENAME_PATTERN="RELATORIO_RISCO_{cooperativa}_{competencia}.xlsx"
+  - DATABASE_PROFILE=PRD (ou HML)
+  - SISBR_EXE=C:\Sisbr 2.0\Sisbr 2.0.exe
+
+Config.xlsx (dados que mudam sem deploy):
+  - Settings: MailDestinatarioResultado, MailDestinatarioCC, MailSubject
+  - Items: Reference, Tipo Relatorio, Cooperativa, PA, nomes, Destinatarios, Sharepoint, Nome Arquivo, Extensao
+
+================================================================================
+ESTRUTURA DE PASTAS NO SHAREPOINT
+================================================================================
+
+{SHAREPOINT_FOLDER_PATH}/
+  {ano} - Acoes RSAC/
+    {MM-ano}/
+      RSAC_{MMYYYY}.xlsx                              <- Consolidado mensal (atualizado a cada cooperativa)
+      {cooperativa}/
+        RELATORIO_RISCO_{cooperativa}_{MMYYYY}.xlsx   <- Insumo (relatorio exportado do portal)
+
+================================================================================
+CONSOLIDADO MENSAL
+================================================================================
+
+- 1 arquivo unico por mes: RSAC_{MMYYYY}.xlsx
+- Copiado do template Models/Modelo_PlanilhaPrincipal.xlsx na 1a cooperativa
+- Template tem 136 abas (4 por cooperativa + 8 gerais)
+- Abas da cooperativa no template vem VAZIAS (podem ter merged cells)
+- A automacao copia TODO o conteudo do insumo (titulo, data emissao, criterios,
+  headers e dados) para a aba correspondente
+- Antes de copiar, desfaz merges e limpa conteudo existente
+- Upload incremental: a cada cooperativa, o consolidado atualizado sobe pro SharePoint
+
+================================================================================
+E-MAIL
+================================================================================
+
+Template HTML com identidade visual Sicoob (utils/mail/template.py):
+  - Logo Sicoob Nova Central ao lado do PROJECT_NAME
+  - Mensagem de intro configuravel
+  - Tabela com cooperativas e badges de status (Sucesso/Erro)
+  - Footer Sicoob Nova Central
+
+Enviado uma unica vez ao final de TODOS os itens (nao por cooperativa).
+E-mail de excecao (erro grave) e enviado imediatamente.
+
+================================================================================
+UTILS REUTILIZAVEIS
+================================================================================
+
+Para replicar em outro projeto RPA Sicoob:
+1. Copiar pasta utils/ (ou subpacotes necessarios)
+2. Copiar lib_sisbr_desktop/ se precisar do Sisbr Desktop
+3. Configurar .env com credenciais e PROJECT_NAME
+4. Usar:
+   from utils.mail import send_mail, build_status_email
+   from utils.sharepoint import upload_file
+   from utils.database import ensure_project, insert_item
+5. O template de e-mail se adapta automaticamente via project_name e intro
+
+================================================================================
+JARBIS (ORQUESTRACAO)
+================================================================================
+
+Topics:
+  - RSAC_RELATORIOS_RISCO_DISPATCHER (task_dispatcher.py)
+  - RSAC_RELATORIOS_RISCO_PERFORMER (task_performer.py)
+
+Worker: agent_jarbis.py (escuta ambos)
+BPMNs: rsac_dispatcher.bpmn e rsac_performer.bpmn
+Endpoint: https://suite.jarbis.com.br/workflow/engine-rest
+
+Publicar BPMNs via Camunda Modeler (Deploy -> REST endpoint)
+
+================================================================================
+COMO TESTAR
+================================================================================
+
+Testes unitarios:
+  python -m pytest tests/ --ignore=tests/test_agent_jarbis_smoke.py -v
+
+Teste manual end-to-end (requer Sisbr + Chrome na sessao Windows):
+  python scripts/teste_manual_rsa.py
+
+  Flags no topo do arquivo:
+    SKIP_SISBR=False         # True pula login no Sisbr
+    SKIP_CONSOLIDADO=False   # True pula preenchimento do consolidado
+    SKIP_SHAREPOINT=False    # True pula upload
+    SKIP_EMAIL=False         # True pula envio de e-mail
+
+================================================================================
+REGRAS DE DESENVOLVIMENTO
+================================================================================
+
+- Nunca gerar arquivos temporarios na raiz — tudo em temp/
+- .env para credenciais e constantes fixas do projeto
+- Config.xlsx para dados que mudam sem deploy (destinatarios, cooperativas)
+- Pacotes em utils/ devem ser genericos e reutilizaveis
+- browser_window_flow.py usa pyautogui (nao Selenium) — sessao autenticada
+- Padrao de nome do insumo vem do .env (REPORT_FILENAME_PATTERN)
+- Template de e-mail e gerado por codigo (utils/mail/template.py), nao por HTML no Config.xlsx
